@@ -6,10 +6,12 @@
     <title>Credit Card Expense Tracker</title>
     <!-- Using Tailwind CDN for simplicity in this single-file app -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js';
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js';
-        import { getFirestore, collection, addDoc, query, where, orderBy, onSnapshot, deleteDoc, doc, serverTimestamp, setDoc } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js';
+        import { getFirestore, collection, addDoc, query, where, orderBy, onSnapshot, deleteDoc, doc, serverTimestamp, setDoc, Timestamp } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js';
 
         // Your Firebase config
         const firebaseConfig = {
@@ -45,6 +47,7 @@
         window.doc = doc;
         window.serverTimestamp = serverTimestamp;
         window.setDoc = setDoc;
+        window.Timestamp = Timestamp;
     </script>
     <style>
         .animate-slide-up {
@@ -54,6 +57,11 @@
             from { transform: translateY(100%); }
             to { transform: translateY(0); }
         }
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -62,19 +70,24 @@
     <script>
         // Global state
         let currentUser = null;
-        let expenses = [];
+        let allExpenses = []; // All expenses for the user
+        let expenses = []; // Filtered expenses
         let monthlyBudget = 2000;
         let billingCycleStart = new Date().toISOString().split('T')[0];
         let unsubscribeExpenses = null;
         let unsubscribeSettings = null;
+        let currentView = 'current'; // 'current', 'monthly', 'yearly'
+        let searchQuery = '';
+        let selectedCategory = '';
+        let charts = {}; // Store chart instances
 
         const categories = [
-            { id: 'food', name: 'Food', emoji: '🍔', color: 'bg-orange-500' },
-            { id: 'transport', name: 'Transport', emoji: '🚗', color: 'bg-blue-500' },
-            { id: 'shopping', name: 'Shopping', emoji: '🛍️', color: 'bg-pink-500' },
-            { id: 'bills', name: 'Bills', emoji: '📄', color: 'bg-gray-500' },
-            { id: 'fun', name: 'Fun', emoji: '🎬', color: 'bg-purple-500' },
-            { id: 'other', name: 'Other', emoji: '📦', color: 'bg-yellow-600' }
+            { id: 'food', name: 'Food', emoji: '🍔', color: 'bg-orange-500', chartColor: '#f97316' },
+            { id: 'transport', name: 'Transport', emoji: '🚗', color: 'bg-blue-500', chartColor: '#3b82f6' },
+            { id: 'shopping', name: 'Shopping', emoji: '🛍️', color: 'bg-pink-500', chartColor: '#ec4899' },
+            { id: 'bills', name: 'Bills', emoji: '📄', color: 'bg-gray-500', chartColor: '#6b7280' },
+            { id: 'fun', name: 'Fun', emoji: '🎬', color: 'bg-purple-500', chartColor: '#a855f7' },
+            { id: 'other', name: 'Other', emoji: '📦', color: 'bg-yellow-600', chartColor: '#eab308' }
         ];
 
         // Initialize auth listener after Firebase is loaded
@@ -101,29 +114,155 @@
                     monthlyBudget = data.monthlyBudget || 2000;
                     billingCycleStart = data.billingCycleStart || new Date().toISOString().split('T')[0];
                 }
-                render();
+                filterAndRender();
             });
 
-            // Subscribe to expenses
-            const startDate = new Date(billingCycleStart);
+            // Subscribe to ALL expenses (not just current billing cycle)
             const q = query(
                 collection(db, 'expenses'),
                 where('userId', '==', currentUser.uid),
-                where('date', '>=', startDate),
                 orderBy('date', 'desc')
             );
 
             unsubscribeExpenses = onSnapshot(q, (snapshot) => {
-                expenses = [];
+                allExpenses = [];
                 snapshot.forEach((doc) => {
-                    expenses.push({
+                    allExpenses.push({
                         id: doc.id,
                         ...doc.data(),
                         date: doc.data().date.toDate().toISOString()
                     });
                 });
-                render();
+                filterAndRender();
+                checkBudgetAlert();
             });
+        }
+
+        function filterAndRender() {
+            // Filter expenses based on current view and search
+            expenses = filterExpenses(allExpenses);
+            render();
+        }
+
+        function filterExpenses(expenseList) {
+            let filtered = [...expenseList];
+
+            // Filter by time period
+            const now = new Date();
+            if (currentView === 'current') {
+                const startDate = new Date(billingCycleStart);
+                filtered = filtered.filter(e => new Date(e.date) >= startDate);
+            } else if (currentView === 'monthly') {
+                const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                filtered = filtered.filter(e => new Date(e.date) >= startOfMonth);
+            } else if (currentView === 'yearly') {
+                const startOfYear = new Date(now.getFullYear(), 0, 1);
+                filtered = filtered.filter(e => new Date(e.date) >= startOfYear);
+            }
+
+            // Filter by search query
+            if (searchQuery) {
+                filtered = filtered.filter(e => 
+                    e.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    categories.find(c => c.id === e.category)?.name.toLowerCase().includes(searchQuery.toLowerCase())
+                );
+            }
+
+            // Filter by category
+            if (selectedCategory) {
+                filtered = filtered.filter(e => e.category === selectedCategory);
+            }
+
+            return filtered;
+        }
+
+        function checkBudgetAlert() {
+            const currentCycleExpenses = filterExpenses(allExpenses.filter(e => {
+                const startDate = new Date(billingCycleStart);
+                return new Date(e.date) >= startDate;
+            }));
+            
+            const totalSpent = currentCycleExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+            const budgetPercentage = (totalSpent / monthlyBudget) * 100;
+
+            // Show alert if over 80% of budget
+            if (budgetPercentage >= 80 && budgetPercentage < 100) {
+                showBudgetNotification('warning', `You've used ${budgetPercentage.toFixed(0)}% of your budget!`);
+            } else if (budgetPercentage >= 100) {
+                showBudgetNotification('danger', `You're over budget by $${(totalSpent - monthlyBudget).toFixed(2)}!`);
+            }
+        }
+
+        function showBudgetNotification(type, message) {
+            const existingNotification = document.getElementById('budget-notification');
+            if (existingNotification) existingNotification.remove();
+
+            const notification = document.createElement('div');
+            notification.id = 'budget-notification';
+            notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 animate-slide-up ${
+                type === 'danger' ? 'bg-red-500 text-white' : 'bg-yellow-500 text-white'
+            }`;
+            notification.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <span>${message}</span>
+                </div>
+            `;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 5000);
+        }
+
+        function getMonthlyData() {
+            const monthlyTotals = {};
+            const now = new Date();
+            
+            // Initialize last 6 months
+            for (let i = 5; i >= 0; i--) {
+                const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                monthlyTotals[key] = 0;
+            }
+
+            // Sum expenses by month
+            allExpenses.forEach(expense => {
+                const date = new Date(expense.date);
+                const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                if (monthlyTotals.hasOwnProperty(key)) {
+                    monthlyTotals[key] += expense.amount;
+                }
+            });
+
+            return monthlyTotals;
+        }
+
+        function getCategoryTrends() {
+            const trends = {};
+            const now = new Date();
+            
+            // Initialize categories for last 6 months
+            categories.forEach(cat => {
+                trends[cat.id] = {};
+                for (let i = 5; i >= 0; i--) {
+                    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                    trends[cat.id][key] = 0;
+                }
+            });
+
+            // Sum expenses by category and month
+            allExpenses.forEach(expense => {
+                const date = new Date(expense.date);
+                const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                const monthStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+                
+                if (date >= monthStart && trends[expense.category]) {
+                    trends[expense.category][key] = (trends[expense.category][key] || 0) + expense.amount;
+                }
+            });
+
+            return trends;
         }
 
         function showLogin() {
@@ -190,7 +329,7 @@
         }
 
         function showApp() {
-            render();
+            filterAndRender();
         }
 
         function render() {
@@ -213,7 +352,7 @@
 
             document.getElementById('app').innerHTML = `
                 <div class="min-h-screen bg-gray-50 pb-20">
-                    <div class="max-w-4xl mx-auto p-4">
+                    <div class="max-w-6xl mx-auto p-4">
                         <div class="flex justify-between items-center mb-6">
                             <h1 class="text-3xl font-bold">Credit Card Tracker</h1>
                             <button onclick="handleLogout()" class="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800">
@@ -223,12 +362,52 @@
                                 Logout
                             </button>
                         </div>
+
+                        <!-- View Toggle -->
+                        <div class="flex gap-2 mb-6">
+                            <button onclick="setView('current')" class="px-4 py-2 rounded-lg ${currentView === 'current' ? 'bg-blue-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}">
+                                Current Cycle
+                            </button>
+                            <button onclick="setView('monthly')" class="px-4 py-2 rounded-lg ${currentView === 'monthly' ? 'bg-blue-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}">
+                                This Month
+                            </button>
+                            <button onclick="setView('yearly')" class="px-4 py-2 rounded-lg ${currentView === 'yearly' ? 'bg-blue-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}">
+                                This Year
+                            </button>
+                        </div>
+
+                        <!-- Search and Filter -->
+                        <div class="flex gap-4 mb-6">
+                            <div class="flex-1">
+                                <input 
+                                    type="text" 
+                                    placeholder="Search expenses..." 
+                                    value="${searchQuery}"
+                                    onchange="setSearch(this.value)"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                            </div>
+                            <select 
+                                onchange="setCategory(this.value)"
+                                class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="">All Categories</option>
+                                ${categories.map(cat => `
+                                    <option value="${cat.id}" ${selectedCategory === cat.id ? 'selected' : ''}>
+                                        ${cat.emoji} ${cat.name}
+                                    </option>
+                                `).join('')}
+                            </select>
+                        </div>
                         
                         <!-- Budget Overview Card -->
                         <div class="bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl p-6 text-white mb-6">
                             <div class="flex justify-between items-start mb-4">
                                 <div>
-                                    <p class="text-sm opacity-90">Total Spent</p>
+                                    <p class="text-sm opacity-90">
+                                        ${currentView === 'current' ? 'Current Cycle' : 
+                                          currentView === 'monthly' ? 'This Month' : 'This Year'} Spent
+                                    </p>
                                     <p class="text-4xl font-bold">$${totalSpent.toFixed(2)}</p>
                                 </div>
                                 <button onclick="showBudgetModal()" class="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-lg text-sm">
@@ -236,38 +415,59 @@
                                 </button>
                             </div>
                             
-                            <div class="grid grid-cols-3 gap-4 mt-4">
-                                <div>
-                                    <p class="text-xs opacity-75">Since</p>
-                                    <p class="font-semibold">${new Date(billingCycleStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                            ${currentView === 'current' ? `
+                                <div class="grid grid-cols-3 gap-4 mt-4">
+                                    <div>
+                                        <p class="text-xs opacity-75">Since</p>
+                                        <p class="font-semibold">${new Date(billingCycleStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs opacity-75">Days</p>
+                                        <p class="font-semibold">${daysSinceCycleStart}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs opacity-75">Daily Avg</p>
+                                        <p class="font-semibold">$${dailyAverage.toFixed(2)}</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p class="text-xs opacity-75">Days</p>
-                                    <p class="font-semibold">${daysSinceCycleStart}</p>
+                                
+                                <div class="mt-4">
+                                    <div class="flex justify-between text-sm mb-1">
+                                        <span>Budget Used</span>
+                                        <span>${budgetPercentage.toFixed(0)}%</span>
+                                    </div>
+                                    <div class="w-full bg-white/30 rounded-full h-2">
+                                        <div class="h-2 rounded-full transition-all ${
+                                            budgetPercentage > 90 ? 'bg-red-400' : 
+                                            budgetPercentage > 70 ? 'bg-yellow-400' : 'bg-green-400'
+                                        }" style="width: ${Math.min(budgetPercentage, 100)}%"></div>
+                                    </div>
+                                    <p class="text-xs mt-1 opacity-75">
+                                        ${budgetRemaining >= 0 
+                                            ? `$${budgetRemaining.toFixed(2)} remaining`
+                                            : `$${Math.abs(budgetRemaining).toFixed(2)} over budget`
+                                        }
+                                    </p>
                                 </div>
-                                <div>
-                                    <p class="text-xs opacity-75">Daily Avg</p>
-                                    <p class="font-semibold">$${dailyAverage.toFixed(2)}</p>
+                            ` : ''}
+                        </div>
+
+                        <!-- Charts Section -->
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                            <!-- Monthly Comparison Chart -->
+                            <div class="bg-white rounded-2xl p-6 shadow-sm">
+                                <h2 class="text-lg font-semibold mb-4">Monthly Spending Trend</h2>
+                                <div class="chart-container">
+                                    <canvas id="monthlyChart"></canvas>
                                 </div>
                             </div>
-                            
-                            <div class="mt-4">
-                                <div class="flex justify-between text-sm mb-1">
-                                    <span>Budget Used</span>
-                                    <span>${budgetPercentage.toFixed(0)}%</span>
+
+                            <!-- Category Trends Chart -->
+                            <div class="bg-white rounded-2xl p-6 shadow-sm">
+                                <h2 class="text-lg font-semibold mb-4">Category Trends</h2>
+                                <div class="chart-container">
+                                    <canvas id="categoryChart"></canvas>
                                 </div>
-                                <div class="w-full bg-white/30 rounded-full h-2">
-                                    <div class="h-2 rounded-full transition-all ${
-                                        budgetPercentage > 90 ? 'bg-red-400' : 
-                                        budgetPercentage > 70 ? 'bg-yellow-400' : 'bg-green-400'
-                                    }" style="width: ${Math.min(budgetPercentage, 100)}%"></div>
-                                </div>
-                                <p class="text-xs mt-1 opacity-75">
-                                    ${budgetRemaining >= 0 
-                                        ? `$${budgetRemaining.toFixed(2)} remaining`
-                                        : `$${Math.abs(budgetRemaining).toFixed(2)} over budget`
-                                    }
-                                </p>
                             </div>
                         </div>
 
@@ -293,7 +493,10 @@
                         <!-- Recent Expenses -->
                         <div class="bg-white rounded-2xl p-6 shadow-sm mb-20">
                             <div class="flex justify-between items-center mb-4">
-                                <h2 class="text-lg font-semibold">Recent Expenses</h2>
+                                <h2 class="text-lg font-semibold">
+                                    ${searchQuery || selectedCategory ? 'Filtered' : 'Recent'} Expenses 
+                                    <span class="text-sm text-gray-500">(${expenses.length})</span>
+                                </h2>
                                 <div class="flex gap-2">
                                     <button onclick="exportToCSV()" class="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -311,7 +514,7 @@
                             </div>
                             
                             ${expenses.length === 0 ? `
-                                <p class="text-gray-500 text-center py-8">No expenses yet this billing cycle</p>
+                                <p class="text-gray-500 text-center py-8">No expenses found</p>
                             ` : `
                                 <div class="space-y-2">
                                     ${expenses.map(expense => {
@@ -323,7 +526,7 @@
                                                     <div>
                                                         <p class="font-medium">${cat?.name}</p>
                                                         ${expense.description ? `<p class="text-sm text-gray-600">${expense.description}</p>` : ''}
-                                                        <p class="text-xs text-gray-500">${new Date(expense.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                                                        <p class="text-xs text-gray-500">${new Date(expense.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
                                                     </div>
                                                 </div>
                                                 <div class="flex items-center gap-2">
@@ -352,6 +555,120 @@
 
                 <div id="modal"></div>
             `;
+
+            // Render charts after DOM is updated
+            setTimeout(() => {
+                renderCharts();
+            }, 100);
+        }
+
+        function renderCharts() {
+            // Monthly Spending Trend
+            const monthlyCtx = document.getElementById('monthlyChart');
+            if (monthlyCtx) {
+                if (charts.monthly) charts.monthly.destroy();
+                
+                const monthlyData = getMonthlyData();
+                const labels = Object.keys(monthlyData).map(key => {
+                    const [year, month] = key.split('-');
+                    return new Date(year, month - 1).toLocaleDateString('en-US', { month: 'short' });
+                });
+
+                charts.monthly = new Chart(monthlyCtx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Monthly Spending',
+                            data: Object.values(monthlyData),
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            tension: 0.3,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return '$' + value.toFixed(0);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Category Trends
+            const categoryCtx = document.getElementById('categoryChart');
+            if (categoryCtx) {
+                if (charts.category) charts.category.destroy();
+                
+                const trends = getCategoryTrends();
+                const months = Object.keys(trends[categories[0].id]);
+                const datasets = categories.map(cat => ({
+                    label: cat.name,
+                    data: Object.values(trends[cat.id]),
+                    borderColor: cat.chartColor,
+                    backgroundColor: cat.chartColor + '20',
+                    hidden: Object.values(trends[cat.id]).every(v => v === 0)
+                }));
+
+                charts.category = new Chart(categoryCtx, {
+                    type: 'line',
+                    data: {
+                        labels: months.map(key => {
+                            const [year, month] = key.split('-');
+                            return new Date(year, month - 1).toLocaleDateString('en-US', { month: 'short' });
+                        }),
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return '$' + value.toFixed(0);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        function setView(view) {
+            currentView = view;
+            filterAndRender();
+        }
+
+        function setSearch(query) {
+            searchQuery = query;
+            filterAndRender();
+        }
+
+        function setCategory(category) {
+            selectedCategory = category;
+            filterAndRender();
         }
 
         let isSignUp = false;
@@ -589,7 +906,7 @@
                 }, { merge: true });
                 monthlyBudget = newBudget;
                 closeModal();
-                render();
+                filterAndRender();
             } catch (error) {
                 console.error('Error saving budget:', error);
                 alert('Failed to save budget. Please try again.');
