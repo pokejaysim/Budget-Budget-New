@@ -646,7 +646,27 @@
                         maintainAspectRatio: false,
                         plugins: {
                             legend: {
-                                position: 'bottom'
+                                position: 'bottom',
+                                labels: {
+                                    usePointStyle: true,
+                                    pointStyle: 'rect',
+                                    padding: 15,
+                                    generateLabels: function(chart) {
+                                        const data = chart.data;
+                                        if (data.labels.length && data.datasets.length) {
+                                            return data.datasets.map((dataset, i) => {
+                                                return {
+                                                    text: dataset.label,
+                                                    fillStyle: dataset.backgroundColor,
+                                                    strokeStyle: dataset.backgroundColor,
+                                                    hidden: dataset.hidden,
+                                                    index: i
+                                                };
+                                            });
+                                        }
+                                        return [];
+                                    }
+                                }
                             },
                             tooltip: {
                                 callbacks: {
