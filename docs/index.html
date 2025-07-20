@@ -808,12 +808,14 @@
         let expenseAmount = '';
         let expenseCategory = '';
         let expenseDescription = '';
+        let expenseDate = new Date().toISOString().split('T')[0];
         let isRefund = false;
 
         function showAddExpense() {
             expenseAmount = '';
             expenseCategory = '';
             expenseDescription = '';
+            expenseDate = new Date().toISOString().split('T')[0];
             isRefund = false;
             
             document.getElementById('modal').innerHTML = `
@@ -851,6 +853,11 @@
                         </div>
 
                         <input type="text" id="description" placeholder="Description (optional)" class="w-full px-4 py-3 border rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
+
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Transaction Date</label>
+                            <input type="date" id="expenseDate" value="${expenseDate}" max="${new Date().toISOString().split('T')[0]}" class="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
 
                         <div class="grid grid-cols-3 gap-2 mt-4">
                             ${['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'delete'].map(btn => `
@@ -947,11 +954,14 @@
             
             try {
                 const amount = parseFloat(expenseAmount);
+                const selectedDate = document.getElementById('expenseDate').value;
+                const transactionDate = selectedDate ? new Date(selectedDate + 'T12:00:00') : new Date();
+                
                 await addDoc(collection(db, 'expenses'), {
                     amount: isRefund ? -amount : amount,
                     category: expenseCategory,
                     description: document.getElementById('description').value,
-                    date: new Date(),
+                    date: transactionDate,
                     userId: currentUser.uid,
                     isRefund: isRefund,
                     createdAt: serverTimestamp()
