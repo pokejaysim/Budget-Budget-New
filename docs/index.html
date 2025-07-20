@@ -609,7 +609,7 @@
                 });
             }
 
-            // Category Trends
+            // Category Trends - Stacked Bar Chart
             const categoryCtx = document.getElementById('categoryChart');
             if (categoryCtx) {
                 if (charts.category) charts.category.destroy();
@@ -619,13 +619,14 @@
                 const datasets = categories.map(cat => ({
                     label: cat.name,
                     data: Object.values(trends[cat.id]),
+                    backgroundColor: cat.chartColor,
                     borderColor: cat.chartColor,
-                    backgroundColor: cat.chartColor + '20',
+                    borderWidth: 1,
                     hidden: Object.values(trends[cat.id]).every(v => v === 0)
                 }));
 
                 charts.category = new Chart(categoryCtx, {
-                    type: 'line',
+                    type: 'bar',
                     data: {
                         labels: months.map(key => {
                             const [year, month] = key.split('-');
@@ -639,10 +640,25 @@
                         plugins: {
                             legend: {
                                 position: 'bottom'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    footer: function(tooltipItems) {
+                                        let sum = 0;
+                                        tooltipItems.forEach(function(tooltipItem) {
+                                            sum += tooltipItem.parsed.y;
+                                        });
+                                        return 'Total: $' + sum.toFixed(2);
+                                    }
+                                }
                             }
                         },
                         scales: {
+                            x: {
+                                stacked: true
+                            },
                             y: {
+                                stacked: true,
                                 beginAtZero: true,
                                 ticks: {
                                     callback: function(value) {
