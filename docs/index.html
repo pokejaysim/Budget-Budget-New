@@ -519,18 +519,25 @@
                                 <div class="space-y-2">
                                     ${expenses.map(expense => {
                                         const cat = categories.find(c => c.id === expense.category);
+                                        const isRefund = expense.amount < 0;
+                                        const displayAmount = Math.abs(expense.amount);
                                         return `
-                                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg group">
+                                            <div class="flex items-center justify-between p-3 ${isRefund ? 'bg-green-50 border border-green-200' : 'bg-gray-50'} rounded-lg group">
                                                 <div class="flex items-center gap-3">
                                                     <span class="text-2xl">${cat?.emoji}</span>
                                                     <div>
-                                                        <p class="font-medium">${cat?.name}</p>
+                                                        <div class="flex items-center gap-2">
+                                                            <p class="font-medium">${cat?.name}</p>
+                                                            ${isRefund ? '<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Refund</span>' : ''}
+                                                        </div>
                                                         ${expense.description ? `<p class="text-sm text-gray-600">${expense.description}</p>` : ''}
                                                         <p class="text-xs text-gray-500">${new Date(expense.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
                                                     </div>
                                                 </div>
                                                 <div class="flex items-center gap-2">
-                                                    <p class="font-semibold text-lg">$${expense.amount.toFixed(2)}</p>
+                                                    <p class="font-semibold text-lg ${isRefund ? 'text-green-600' : ''}">
+                                                        ${isRefund ? '-' : ''}$${displayAmount.toFixed(2)}
+                                                    </p>
                                                     <button onclick="handleDeleteExpense('${expense.id}')" class="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition-all">
                                                         <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -769,17 +776,19 @@
         let expenseAmount = '';
         let expenseCategory = '';
         let expenseDescription = '';
+        let isRefund = false;
 
         function showAddExpense() {
             expenseAmount = '';
             expenseCategory = '';
             expenseDescription = '';
+            isRefund = false;
             
             document.getElementById('modal').innerHTML = `
                 <div class="fixed inset-0 bg-black/50 flex items-end justify-center z-50">
                     <div class="bg-white rounded-t-3xl p-6 w-full max-w-lg animate-slide-up">
                         <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-xl font-semibold">Add Expense</h3>
+                            <h3 class="text-xl font-semibold" id="modalTitle">Add Expense</h3>
                             <button onclick="closeModal()" class="p-2 hover:bg-gray-100 rounded-lg">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -787,7 +796,16 @@
                             </button>
                         </div>
 
-                        <div class="bg-gray-100 rounded-xl p-4 mb-4 text-center">
+                        <div class="flex gap-2 mb-4">
+                            <button onclick="setTransactionType(false)" id="expenseBtn" class="flex-1 py-2 px-4 rounded-lg border-2 border-blue-500 bg-blue-50 text-blue-700 font-medium transition-all">
+                                Expense
+                            </button>
+                            <button onclick="setTransactionType(true)" id="refundBtn" class="flex-1 py-2 px-4 rounded-lg border-2 border-gray-200 text-gray-700 font-medium transition-all">
+                                Refund/Credit
+                            </button>
+                        </div>
+
+                        <div class="bg-gray-100 rounded-xl p-4 mb-4 text-center" id="amountContainer">
                             <p class="text-4xl font-bold" id="amountDisplay">$0.00</p>
                         </div>
 
@@ -825,6 +843,32 @@
             `;
         }
 
+        function setTransactionType(refund) {
+            isRefund = refund;
+            const expenseBtn = document.getElementById('expenseBtn');
+            const refundBtn = document.getElementById('refundBtn');
+            const modalTitle = document.getElementById('modalTitle');
+            const amountContainer = document.getElementById('amountContainer');
+            const addBtn = document.getElementById('addExpenseBtn');
+            
+            if (refund) {
+                modalTitle.textContent = 'Add Refund/Credit';
+                expenseBtn.className = 'flex-1 py-2 px-4 rounded-lg border-2 border-gray-200 text-gray-700 font-medium transition-all';
+                refundBtn.className = 'flex-1 py-2 px-4 rounded-lg border-2 border-green-500 bg-green-50 text-green-700 font-medium transition-all';
+                amountContainer.className = 'bg-green-100 rounded-xl p-4 mb-4 text-center';
+                addBtn.textContent = 'Add Refund';
+                addBtn.className = 'w-full bg-green-500 text-white py-4 rounded-xl font-semibold hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors mt-4';
+            } else {
+                modalTitle.textContent = 'Add Expense';
+                expenseBtn.className = 'flex-1 py-2 px-4 rounded-lg border-2 border-blue-500 bg-blue-50 text-blue-700 font-medium transition-all';
+                refundBtn.className = 'flex-1 py-2 px-4 rounded-lg border-2 border-gray-200 text-gray-700 font-medium transition-all';
+                amountContainer.className = 'bg-gray-100 rounded-xl p-4 mb-4 text-center';
+                addBtn.textContent = 'Add Expense';
+                addBtn.className = 'w-full bg-blue-500 text-white py-4 rounded-xl font-semibold hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors mt-4';
+            }
+            updateAmountDisplay();
+        }
+
         function selectCategory(catId) {
             expenseCategory = catId;
             categories.forEach(cat => {
@@ -853,30 +897,38 @@
                 }
                 expenseAmount += value;
             }
-            document.getElementById('amountDisplay').textContent = '$' + (expenseAmount || '0.00');
+            updateAmountDisplay();
+        }
+
+        function updateAmountDisplay() {
+            const displayAmount = expenseAmount || '0.00';
+            const prefix = isRefund ? '-$' : '$';
+            document.getElementById('amountDisplay').textContent = prefix + displayAmount;
         }
 
         async function handleAddExpense() {
             if (!expenseAmount || parseFloat(expenseAmount) === 0 || !expenseCategory || !currentUser) return;
             
             const btn = document.getElementById('addExpenseBtn');
-            btn.textContent = 'Adding...';
+            btn.textContent = isRefund ? 'Adding Refund...' : 'Adding...';
             btn.disabled = true;
             
             try {
+                const amount = parseFloat(expenseAmount);
                 await addDoc(collection(db, 'expenses'), {
-                    amount: parseFloat(expenseAmount),
+                    amount: isRefund ? -amount : amount,
                     category: expenseCategory,
                     description: document.getElementById('description').value,
                     date: new Date(),
                     userId: currentUser.uid,
+                    isRefund: isRefund,
                     createdAt: serverTimestamp()
                 });
                 closeModal();
             } catch (error) {
                 console.error('Error adding expense:', error);
-                alert('Failed to add expense. Please try again.');
-                btn.textContent = 'Add Expense';
+                alert('Failed to add ' + (isRefund ? 'refund' : 'expense') + '. Please try again.');
+                btn.textContent = isRefund ? 'Add Refund' : 'Add Expense';
                 btn.disabled = false;
             }
         }
