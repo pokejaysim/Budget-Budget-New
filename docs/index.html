@@ -161,6 +161,9 @@
         }
 
         function subscribeToUserData() {
+            // Initialize categories with defaults immediately to prevent undefined errors
+            categories = [...defaultCategories];
+            
             // Subscribe to user settings
             const settingsRef = doc(db, 'userSettings', currentUser.uid);
             unsubscribeSettings = onSnapshot(settingsRef, (doc) => {
@@ -184,8 +187,18 @@
                 } else {
                     // Initialize with default categories for new users
                     categories = defaultCategories;
-                    await setDoc(categoriesRef, { categories: defaultCategories });
+                    try {
+                        await setDoc(categoriesRef, { categories: defaultCategories });
+                    } catch (error) {
+                        console.error('Error saving default categories:', error);
+                        // Continue with default categories even if save fails
+                    }
                 }
+                filterAndRender();
+            }, (error) => {
+                console.error('Error loading categories:', error);
+                // Use default categories if there's an error
+                categories = defaultCategories;
                 filterAndRender();
             });
 
@@ -789,7 +802,13 @@
                 if (charts.category) charts.category.destroy();
                 
                 const trends = getCategoryTrends();
-                const months = Object.keys(trends[categories[0].id]);
+                // Check if categories exist before rendering
+                if (!categories || categories.length === 0) {
+                    console.warn('No categories available for trend chart');
+                    return;
+                }
+                
+                const months = Object.keys(trends[categories[0].id] || {});
                 const datasets = categories.map(cat => ({
                     label: cat.name,
                     data: Object.values(trends[cat.id]),
