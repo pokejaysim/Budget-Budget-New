@@ -88,9 +88,13 @@
         let selectedMonth = null; // Format: 'YYYY-MM'
         let selectedYear = null; // Format: YYYY
         let charts = {}; // Store chart instances
+        let categories = []; // Will be loaded from Firebase
+        let unsubscribeCategories = null;
 
-        const categories = [
+        // Default categories (used as fallback and for new users)
+        const defaultCategories = [
             { id: 'food', name: 'Food', emoji: '🍔', color: 'bg-orange-500', chartColor: '#f97316' },
+            { id: 'groceries', name: 'Groceries', emoji: '🛒', color: 'bg-green-500', chartColor: '#10b981' },
             { id: 'transport', name: 'Transport', emoji: '🚗', color: 'bg-blue-500', chartColor: '#3b82f6' },
             { id: 'shopping', name: 'Shopping', emoji: '🛍️', color: 'bg-pink-500', chartColor: '#ec4899' },
             { id: 'bills', name: 'Bills', emoji: '📄', color: 'bg-gray-500', chartColor: '#6b7280' },
@@ -108,6 +112,8 @@
                 } else {
                     if (unsubscribeExpenses) unsubscribeExpenses();
                     if (unsubscribeSettings) unsubscribeSettings();
+                    if (unsubscribeCategories) unsubscribeCategories();
+                    categories = [];
                     showLogin();
                 }
             });
@@ -166,6 +172,19 @@
                     // Auto-calculate current cycle based on cycle day
                     const currentCycle = calculateCurrentCycle(billingCycleDay);
                     billingCycleStart = currentCycle.startStr;
+                }
+                filterAndRender();
+            });
+
+            // Subscribe to user categories
+            const categoriesRef = doc(db, 'userCategories', currentUser.uid);
+            unsubscribeCategories = onSnapshot(categoriesRef, async (doc) => {
+                if (doc.exists()) {
+                    categories = doc.data().categories || defaultCategories;
+                } else {
+                    // Initialize with default categories for new users
+                    categories = defaultCategories;
+                    await setDoc(categoriesRef, { categories: defaultCategories });
                 }
                 filterAndRender();
             });
@@ -603,7 +622,15 @@
 
                         <!-- Spending by Category -->
                         <div class="bg-white rounded-2xl p-4 sm:p-6 mb-6 shadow-sm">
-                            <h2 class="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Spending by Category</h2>
+                            <div class="flex justify-between items-center mb-3 sm:mb-4">
+                                <h2 class="text-base sm:text-lg font-semibold">Spending by Category</h2>
+                                <button onclick="showCategoryManager()" class="text-xs sm:text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                                    </svg>
+                                    <span class="hidden sm:inline">Manage</span>
+                                </button>
+                            </div>
                             <div class="grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
                                 ${spendingByCategory.map(cat => `
                                     <div class="bg-gray-50 rounded-lg p-2 sm:p-3">
@@ -1325,6 +1352,336 @@
                 alert('Failed to clear data. Please try again.');
                 btn.textContent = 'Clear All Data';
                 btn.disabled = false;
+            }
+        }
+
+        function showCategoryManager() {
+            document.getElementById('modal').innerHTML = `
+                <div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+                    <div class="bg-white rounded-2xl p-4 sm:p-6 w-full max-w-2xl my-8">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg sm:text-xl font-semibold">Manage Categories</h3>
+                            <button onclick="closeModal()" class="p-2 hover:bg-gray-100 rounded-lg">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        
+                        <div class="mb-6">
+                            <button onclick="showAddCategory()" class="w-full sm:w-auto px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center justify-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                </svg>
+                                Add New Category
+                            </button>
+                        </div>
+                        
+                        <div class="space-y-2">
+                            ${categories.map((cat, index) => `
+                                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg group">
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-2xl">${cat.emoji}</span>
+                                        <div>
+                                            <p class="font-medium">${cat.name}</p>
+                                            <p class="text-xs text-gray-500">ID: ${cat.id}</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-6 h-6 ${cat.color} rounded"></div>
+                                        <button onclick="editCategory(${index})" class="p-2 hover:bg-gray-200 rounded-lg transition-all">
+                                            <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                            </svg>
+                                        </button>
+                                        ${categories.length > 1 ? `
+                                            <button onclick="deleteCategory(${index})" class="p-2 hover:bg-red-100 rounded-lg transition-all">
+                                                <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                            </button>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        
+                        <p class="text-xs text-gray-500 mt-4">Note: You must have at least one category.</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showAddCategory() {
+            const colors = [
+                { color: 'bg-red-500', chartColor: '#ef4444' },
+                { color: 'bg-orange-500', chartColor: '#f97316' },
+                { color: 'bg-yellow-500', chartColor: '#eab308' },
+                { color: 'bg-green-500', chartColor: '#10b981' },
+                { color: 'bg-blue-500', chartColor: '#3b82f6' },
+                { color: 'bg-purple-500', chartColor: '#a855f7' },
+                { color: 'bg-pink-500', chartColor: '#ec4899' },
+                { color: 'bg-gray-500', chartColor: '#6b7280' }
+            ];
+            
+            const emojis = ['🍔', '🛒', '🚗', '🛍️', '📄', '🎬', '📦', '🏠', '💊', '✈️', '🎮', '📚', '👕', '💰', '🎁', '🏋️', '🍕', '☕'];
+            
+            document.getElementById('modal').innerHTML = `
+                <div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                    <div class="bg-white rounded-2xl p-4 sm:p-6 w-full max-w-md">
+                        <h3 class="text-lg font-semibold mb-4">Add New Category</h3>
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Category Name</label>
+                            <input type="text" id="newCategoryName" placeholder="e.g., Groceries" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" maxlength="20">
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Select Emoji</label>
+                            <div class="grid grid-cols-6 gap-2">
+                                ${emojis.map(emoji => `
+                                    <button onclick="selectEmoji('${emoji}')" class="p-2 text-2xl hover:bg-gray-100 rounded-lg emoji-btn" data-emoji="${emoji}">
+                                        ${emoji}
+                                    </button>
+                                `).join('')}
+                            </div>
+                            <input type="hidden" id="selectedEmoji" value="">
+                        </div>
+                        
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Select Color</label>
+                            <div class="grid grid-cols-4 gap-2">
+                                ${colors.map((c, i) => `
+                                    <button onclick="selectColor(${i})" class="h-10 ${c.color} rounded-lg color-btn hover:ring-2 hover:ring-offset-2 hover:ring-gray-400" data-color="${c.color}" data-chart="${c.chartColor}"></button>
+                                `).join('')}
+                            </div>
+                            <input type="hidden" id="selectedColor" value="">
+                            <input type="hidden" id="selectedChartColor" value="">
+                        </div>
+                        
+                        <div class="flex gap-3">
+                            <button onclick="showCategoryManager()" class="flex-1 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                                Cancel
+                            </button>
+                            <button onclick="saveNewCategory()" class="flex-1 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600" id="saveCategoryBtn">
+                                Add Category
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function selectEmoji(emoji) {
+            document.getElementById('selectedEmoji').value = emoji;
+            document.querySelectorAll('.emoji-btn').forEach(btn => {
+                btn.classList.toggle('ring-2', btn.dataset.emoji === emoji);
+                btn.classList.toggle('ring-blue-500', btn.dataset.emoji === emoji);
+            });
+        }
+
+        function selectColor(index) {
+            const colors = [
+                { color: 'bg-red-500', chartColor: '#ef4444' },
+                { color: 'bg-orange-500', chartColor: '#f97316' },
+                { color: 'bg-yellow-500', chartColor: '#eab308' },
+                { color: 'bg-green-500', chartColor: '#10b981' },
+                { color: 'bg-blue-500', chartColor: '#3b82f6' },
+                { color: 'bg-purple-500', chartColor: '#a855f7' },
+                { color: 'bg-pink-500', chartColor: '#ec4899' },
+                { color: 'bg-gray-500', chartColor: '#6b7280' }
+            ];
+            
+            document.getElementById('selectedColor').value = colors[index].color;
+            document.getElementById('selectedChartColor').value = colors[index].chartColor;
+            
+            document.querySelectorAll('.color-btn').forEach((btn, i) => {
+                btn.classList.toggle('ring-2', i === index);
+                btn.classList.toggle('ring-offset-2', i === index);
+                btn.classList.toggle('ring-gray-800', i === index);
+            });
+        }
+
+        async function saveNewCategory() {
+            const name = document.getElementById('newCategoryName').value.trim();
+            const emoji = document.getElementById('selectedEmoji').value;
+            const color = document.getElementById('selectedColor').value;
+            const chartColor = document.getElementById('selectedChartColor').value;
+            
+            if (!name || !emoji || !color) {
+                alert('Please fill in all fields');
+                return;
+            }
+            
+            const id = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+            
+            // Check if ID already exists
+            if (categories.some(cat => cat.id === id)) {
+                alert('A category with this name already exists');
+                return;
+            }
+            
+            const newCategory = { id, name, emoji, color, chartColor };
+            const updatedCategories = [...categories, newCategory];
+            
+            const btn = document.getElementById('saveCategoryBtn');
+            btn.textContent = 'Saving...';
+            btn.disabled = true;
+            
+            try {
+                await setDoc(doc(db, 'userCategories', currentUser.uid), {
+                    categories: updatedCategories
+                });
+                showCategoryManager();
+            } catch (error) {
+                console.error('Error saving category:', error);
+                alert('Failed to save category. Please try again.');
+                btn.textContent = 'Add Category';
+                btn.disabled = false;
+            }
+        }
+
+        async function editCategory(index) {
+            const cat = categories[index];
+            const colors = [
+                { color: 'bg-red-500', chartColor: '#ef4444' },
+                { color: 'bg-orange-500', chartColor: '#f97316' },
+                { color: 'bg-yellow-500', chartColor: '#eab308' },
+                { color: 'bg-green-500', chartColor: '#10b981' },
+                { color: 'bg-blue-500', chartColor: '#3b82f6' },
+                { color: 'bg-purple-500', chartColor: '#a855f7' },
+                { color: 'bg-pink-500', chartColor: '#ec4899' },
+                { color: 'bg-gray-500', chartColor: '#6b7280' }
+            ];
+            
+            const emojis = ['🍔', '🛒', '🚗', '🛍️', '📄', '🎬', '📦', '🏠', '💊', '✈️', '🎮', '📚', '👕', '💰', '🎁', '🏋️', '🍕', '☕'];
+            
+            document.getElementById('modal').innerHTML = `
+                <div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                    <div class="bg-white rounded-2xl p-4 sm:p-6 w-full max-w-md">
+                        <h3 class="text-lg font-semibold mb-4">Edit Category</h3>
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Category Name</label>
+                            <input type="text" id="editCategoryName" value="${cat.name}" placeholder="e.g., Groceries" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" maxlength="20">
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Select Emoji</label>
+                            <div class="grid grid-cols-6 gap-2">
+                                ${emojis.map(emoji => `
+                                    <button onclick="selectEmoji('${emoji}')" class="p-2 text-2xl hover:bg-gray-100 rounded-lg emoji-btn ${cat.emoji === emoji ? 'ring-2 ring-blue-500' : ''}" data-emoji="${emoji}">
+                                        ${emoji}
+                                    </button>
+                                `).join('')}
+                            </div>
+                            <input type="hidden" id="selectedEmoji" value="${cat.emoji}">
+                        </div>
+                        
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Select Color</label>
+                            <div class="grid grid-cols-4 gap-2">
+                                ${colors.map((c, i) => `
+                                    <button onclick="selectColor(${i})" class="h-10 ${c.color} rounded-lg color-btn hover:ring-2 hover:ring-offset-2 hover:ring-gray-400 ${cat.color === c.color ? 'ring-2 ring-offset-2 ring-gray-800' : ''}" data-color="${c.color}" data-chart="${c.chartColor}"></button>
+                                `).join('')}
+                            </div>
+                            <input type="hidden" id="selectedColor" value="${cat.color}">
+                            <input type="hidden" id="selectedChartColor" value="${cat.chartColor}">
+                        </div>
+                        
+                        <div class="flex gap-3">
+                            <button onclick="showCategoryManager()" class="flex-1 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                                Cancel
+                            </button>
+                            <button onclick="updateCategory(${index})" class="flex-1 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600" id="updateCategoryBtn">
+                                Update Category
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function updateCategory(index) {
+            const name = document.getElementById('editCategoryName').value.trim();
+            const emoji = document.getElementById('selectedEmoji').value;
+            const color = document.getElementById('selectedColor').value;
+            const chartColor = document.getElementById('selectedChartColor').value;
+            
+            if (!name || !emoji || !color) {
+                alert('Please fill in all fields');
+                return;
+            }
+            
+            const updatedCategories = [...categories];
+            updatedCategories[index] = {
+                ...updatedCategories[index],
+                name,
+                emoji,
+                color,
+                chartColor
+            };
+            
+            const btn = document.getElementById('updateCategoryBtn');
+            btn.textContent = 'Updating...';
+            btn.disabled = true;
+            
+            try {
+                await setDoc(doc(db, 'userCategories', currentUser.uid), {
+                    categories: updatedCategories
+                });
+                showCategoryManager();
+            } catch (error) {
+                console.error('Error updating category:', error);
+                alert('Failed to update category. Please try again.');
+                btn.textContent = 'Update Category';
+                btn.disabled = false;
+            }
+        }
+
+        async function deleteCategory(index) {
+            const cat = categories[index];
+            
+            // Check if category has expenses
+            const hasExpenses = allExpenses.some(expense => expense.category === cat.id);
+            
+            if (hasExpenses) {
+                if (!confirm(`The category "${cat.name}" has expenses associated with it. Are you sure you want to delete it? The expenses will be moved to "Other".`)) {
+                    return;
+                }
+            } else {
+                if (!confirm(`Are you sure you want to delete the category "${cat.name}"?`)) {
+                    return;
+                }
+            }
+            
+            const updatedCategories = categories.filter((_, i) => i !== index);
+            
+            try {
+                await setDoc(doc(db, 'userCategories', currentUser.uid), {
+                    categories: updatedCategories
+                });
+                
+                // If there were expenses in this category, update them to 'other'
+                if (hasExpenses) {
+                    const batch = [];
+                    allExpenses.forEach(expense => {
+                        if (expense.category === cat.id) {
+                            batch.push(
+                                setDoc(doc(db, 'expenses', expense.id), 
+                                    { category: 'other' }, 
+                                    { merge: true }
+                                )
+                            );
+                        }
+                    });
+                    await Promise.all(batch);
+                }
+                
+                showCategoryManager();
+            } catch (error) {
+                console.error('Error deleting category:', error);
+                alert('Failed to delete category. Please try again.');
             }
         }
 
