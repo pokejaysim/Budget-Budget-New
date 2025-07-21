@@ -718,6 +718,11 @@
                                                     <p class="font-semibold text-sm sm:text-lg ${isRefund ? 'text-green-600' : ''}">
                                                         ${isRefund ? '-' : ''}$${displayAmount.toFixed(2)}
                                                     </p>
+                                                    <button onclick="editExpense('${expense.id}')" class="opacity-0 group-hover:opacity-100 p-1 hover:bg-blue-100 rounded transition-all touch-manipulation">
+                                                        <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                        </svg>
+                                                    </button>
                                                     <button onclick="handleDeleteExpense('${expense.id}')" class="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition-all touch-manipulation">
                                                         <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1008,19 +1013,45 @@
         let expenseDescription = '';
         let expenseDate = new Date().toISOString().split('T')[0];
         let isRefund = false;
+        let editingExpenseId = null; // Track if we're editing an expense
+
+        function editExpense(expenseId) {
+            editingExpenseId = expenseId;
+            const expense = allExpenses.find(e => e.id === expenseId);
+            
+            if (!expense) {
+                console.error('Expense not found:', expenseId);
+                return;
+            }
+            
+            // Pre-fill the form with existing expense data
+            expenseAmount = Math.abs(expense.amount).toString();
+            expenseCategory = expense.category;
+            expenseDescription = expense.description || '';
+            expenseDate = expense.date.split('T')[0];
+            isRefund = expense.amount < 0;
+            
+            // Show the modal with edit title
+            showExpenseModal('Edit Expense');
+        }
 
         function showAddExpense() {
+            editingExpenseId = null; // Reset editing state
             expenseAmount = '';
             expenseCategory = '';
             expenseDescription = '';
             expenseDate = new Date().toISOString().split('T')[0];
             isRefund = false;
             
+            showExpenseModal('Add Expense');
+        }
+        
+        function showExpenseModal(title) {
             document.getElementById('modal').innerHTML = `
                 <div class="fixed inset-0 bg-black/50 flex items-end justify-center z-50">
                     <div class="bg-white rounded-t-3xl sm:rounded-2xl p-4 sm:p-6 w-full max-w-lg animate-slide-up max-h-[90vh] overflow-y-auto">
                         <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-lg sm:text-xl font-semibold" id="modalTitle">Add Expense</h3>
+                            <h3 class="text-lg sm:text-xl font-semibold" id="modalTitle">${title}</h3>
                             <button onclick="closeModal()" class="p-2 hover:bg-gray-100 rounded-lg touch-manipulation">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -1073,11 +1104,30 @@
                         </div>
 
                         <button onclick="handleAddExpense()" class="w-full bg-blue-500 text-white py-3 sm:py-4 rounded-xl font-semibold hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors mt-4 touch-manipulation" id="addExpenseBtn">
-                            Add Expense
+                            ${editingExpenseId ? 'Update Expense' : 'Add Expense'}
                         </button>
                     </div>
                 </div>
             `;
+            
+            // If editing, update the UI to show pre-filled data
+            if (editingExpenseId) {
+                // Update amount display
+                updateAmountDisplay();
+                
+                // Highlight selected category
+                if (expenseCategory) {
+                    selectCategory(expenseCategory);
+                }
+                
+                // Update transaction type buttons
+                setTransactionType(isRefund);
+                
+                // Set description
+                if (expenseDescription) {
+                    document.getElementById('description').value = expenseDescription;
+                }
+            }
         }
 
         function setTransactionType(refund) {
@@ -1089,18 +1139,18 @@
             const addBtn = document.getElementById('addExpenseBtn');
             
             if (refund) {
-                modalTitle.textContent = 'Add Refund/Credit';
+                if (!editingExpenseId) modalTitle.textContent = 'Add Refund/Credit';
                 expenseBtn.className = 'flex-1 py-2 px-4 rounded-lg border-2 border-gray-200 text-gray-700 font-medium transition-all';
                 refundBtn.className = 'flex-1 py-2 px-4 rounded-lg border-2 border-green-500 bg-green-50 text-green-700 font-medium transition-all';
                 amountContainer.className = 'bg-green-100 rounded-xl p-4 mb-4 text-center';
-                addBtn.textContent = 'Add Refund';
+                addBtn.textContent = editingExpenseId ? 'Update Refund' : 'Add Refund';
                 addBtn.className = 'w-full bg-green-500 text-white py-4 rounded-xl font-semibold hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors mt-4';
             } else {
-                modalTitle.textContent = 'Add Expense';
+                if (!editingExpenseId) modalTitle.textContent = 'Add Expense';
                 expenseBtn.className = 'flex-1 py-2 px-4 rounded-lg border-2 border-blue-500 bg-blue-50 text-blue-700 font-medium transition-all';
                 refundBtn.className = 'flex-1 py-2 px-4 rounded-lg border-2 border-gray-200 text-gray-700 font-medium transition-all';
                 amountContainer.className = 'bg-gray-100 rounded-xl p-4 mb-4 text-center';
-                addBtn.textContent = 'Add Expense';
+                addBtn.textContent = editingExpenseId ? 'Update Expense' : 'Add Expense';
                 addBtn.className = 'w-full bg-blue-500 text-white py-4 rounded-xl font-semibold hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors mt-4';
             }
             updateAmountDisplay();
@@ -1147,7 +1197,9 @@
             if (!expenseAmount || parseFloat(expenseAmount) === 0 || !expenseCategory || !currentUser) return;
             
             const btn = document.getElementById('addExpenseBtn');
-            btn.textContent = isRefund ? 'Adding Refund...' : 'Adding...';
+            const isEditing = editingExpenseId !== null;
+            
+            btn.textContent = isEditing ? 'Updating...' : (isRefund ? 'Adding Refund...' : 'Adding...');
             btn.disabled = true;
             
             try {
@@ -1155,20 +1207,34 @@
                 const selectedDate = document.getElementById('expenseDate').value;
                 const transactionDate = selectedDate ? new Date(selectedDate + 'T12:00:00') : new Date();
                 
-                await addDoc(collection(db, 'expenses'), {
+                const expenseData = {
                     amount: isRefund ? -amount : amount,
                     category: expenseCategory,
                     description: document.getElementById('description').value,
                     date: transactionDate,
                     userId: currentUser.uid,
-                    isRefund: isRefund,
-                    createdAt: serverTimestamp()
-                });
+                    isRefund: isRefund
+                };
+                
+                if (isEditing) {
+                    // Update existing expense
+                    await updateDoc(doc(db, 'expenses', editingExpenseId), {
+                        ...expenseData,
+                        updatedAt: serverTimestamp()
+                    });
+                } else {
+                    // Add new expense
+                    await addDoc(collection(db, 'expenses'), {
+                        ...expenseData,
+                        createdAt: serverTimestamp()
+                    });
+                }
+                
                 closeModal();
             } catch (error) {
-                console.error('Error adding expense:', error);
-                alert('Failed to add ' + (isRefund ? 'refund' : 'expense') + '. Please try again.');
-                btn.textContent = isRefund ? 'Add Refund' : 'Add Expense';
+                console.error(isEditing ? 'Error updating expense:' : 'Error adding expense:', error);
+                alert(`Failed to ${isEditing ? 'update' : 'add'} ${isRefund ? 'refund' : 'expense'}. Please try again.`);
+                btn.textContent = isEditing ? 'Update Expense' : (isRefund ? 'Add Refund' : 'Add Expense');
                 btn.disabled = false;
             }
         }
