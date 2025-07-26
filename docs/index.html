@@ -11,7 +11,7 @@
     <script type="module">
         import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js';
         import { auth, subscribeToUserData } from './src/firebase-init.js';
-        import { unsubscribeExpenses, unsubscribeSettings, unsubscribeCategories, setCategories, currentUser, allExpenses, expenses, monthlyBudget, billingCycleDay, billingCycleStart, currentView, searchQuery, selectedCategory, selectedMonth, selectedYear, charts, categories, defaultCategories, editingExpenseId, expenseAmount, expenseCategory, expenseDescription, expenseDate, isRefund, setCurrentUser, setAllExpenses, setExpenses, setMonthlyBudget, setBillingCycleDay, setBillingCycleStart, setUnsubscribeExpenses, setUnsubscribeSettings, setCurrentView, setSearchQuery, setSelectedCategory, setSelectedMonth, setSelectedYear, setCharts, setCategories, setUnsubscribeCategories, setEditingExpenseId, setExpenseAmount, setExpenseCategory, setExpenseDescription, setExpenseDate, setIsRefund } from './src/state.js';
+        import { unsubscribeExpenses, unsubscribeSettings, unsubscribeCategories, currentUser, allExpenses, expenses, monthlyBudget, billingCycleDay, billingCycleStart, currentView, searchQuery, selectedCategory, selectedMonth, selectedYear, charts, categories, defaultCategories, editingExpenseId, expenseAmount, expenseCategory, expenseDescription, expenseDate, isRefund, setCurrentUser, setAllExpenses, setExpenses, setMonthlyBudget, setBillingCycleDay, setBillingCycleStart, setUnsubscribeExpenses, setUnsubscribeSettings, setCurrentView, setSearchQuery, setSelectedCategory, setSelectedMonth, setSelectedYear, setCharts, setCategories, setUnsubscribeCategories, setEditingExpenseId, setExpenseAmount, setExpenseCategory, setExpenseDescription, setExpenseDate, setIsRefund } from './src/state.js';
         import { calculateCurrentCycle, filterExpenses, getAvailableMonths, getAvailableYears, checkBudgetAlert } from './src/utils.js';
         import { getMonthlyData, getCategoryTrends, renderCharts } from './src/charts.js';
         import { showBudgetNotification, showLogin, showApp, render, setView, setCustomMonth, setCustomYear, setSearch, setCategory, toggleAuthMode, editExpense, showAddExpense, showExpenseModal, setTransactionType, selectCategory, handleNumberPad, updateAmountDisplay, closeModal, showBudgetModal, showMasterResetModal, checkDeleteConfirmation, showCategoryManager, showAddCategory, selectEmoji, selectColor, exportToCSV } from './src/ui.js';
@@ -145,77 +145,6 @@
     <script>
 
 
-        function subscribeToUserData() {
-            // Initialize categories with defaults immediately to prevent undefined errors
-            window.setCategories([...window.defaultCategories]);
-            
-            // Subscribe to user settings
-            const settingsRef = doc(db, 'userSettings', window.currentUser.uid);
-            window.setUnsubscribeSettings(onSnapshot(settingsRef, (doc) => {
-                if (doc.exists()) {
-                    const data = doc.data();
-                    window.setMonthlyBudget(data.monthlyBudget || 2000);
-                    window.setBillingCycleDay(data.billingCycleDay || 11);
-                    
-                    // Auto-calculate current cycle based on cycle day
-                    const currentCycle = window.calculateCurrentCycle(window.billingCycleDay);
-                    window.setBillingCycleStart(currentCycle.startStr);
-                }
-                filterAndRender();
-            }));
-
-            // Subscribe to user categories
-            const categoriesRef = doc(db, 'userCategories', window.currentUser.uid);
-            window.setUnsubscribeCategories(onSnapshot(categoriesRef, async (doc) => {
-                if (doc.exists()) {
-                    window.setCategories(doc.data().categories || window.defaultCategories);
-                } else {
-                    // Initialize with default categories for new users
-                    window.setCategories(window.defaultCategories);
-                    try {
-                        await setDoc(categoriesRef, { categories: defaultCategories });
-                    } catch (error) {
-                        console.error('Error saving default categories:', error);
-                        // Continue with default categories even if save fails
-                    }
-                }
-                filterAndRender();
-            }, (error) => {
-                console.error('Error loading categories:', error);
-                // Use default categories if there's an error
-                window.setCategories(window.defaultCategories);
-                filterAndRender();
-            }));
-
-            // Subscribe to ALL expenses (not just current billing cycle)
-            const q = query(
-                collection(db, 'expenses'),
-                where('userId', '==', window.currentUser.uid),
-                orderBy('date', 'desc')
-            );
-
-            window.setUnsubscribeExpenses(onSnapshot(q, (snapshot) => {
-                const newAllExpenses = [];
-                snapshot.forEach((doc) => {
-                    const expenseData = doc.data();
-                    const expense = {
-                        id: doc.id,
-                        ...expenseData,
-                        date: expenseData.date.toDate().toISOString()
-                    };
-                    
-                    // Debug: Check for expenses with missing categories
-                    if (expense.category && !categories.find(c => c.id === expense.category)) {
-                        console.warn('Expense has unknown category:', expense.id, 'Category ID:', expense.category);
-                    }
-                    
-                    newAllExpenses.push(expense);
-                });
-                window.setAllExpenses(newAllExpenses);
-                window.filterAndRender();
-                window.checkBudgetAlert();
-            }));
-        }
 
 
 
