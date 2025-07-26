@@ -990,7 +990,15 @@
 
         function selectCategory(catId) {
             expenseCategory = catId;
-            showExpenseModal(editingExpenseId ? 'Edit Expense' : 'Add Expense');
+            // Update the UI to show selected category without recreating the modal
+            document.querySelectorAll('[onclick^="selectCategory"]').forEach(btn => {
+                const btnCatId = btn.getAttribute('onclick').match(/'([^']+)'/)[1];
+                if (btnCatId === catId) {
+                    btn.className = "p-3 rounded-lg border-2 transition-all border-blue-500 bg-blue-50 touch-manipulation";
+                } else {
+                    btn.className = "p-3 rounded-lg border-2 transition-all border-gray-200 hover:border-gray-300 touch-manipulation";
+                }
+            });
         }
 
         function handleNumberPad(value) {
@@ -1014,7 +1022,21 @@
         }
 
         async function handleAddExpense() {
-            if (!expenseAmount || parseFloat(expenseAmount) === 0 || !expenseCategory || !currentUser) return;
+            if (!expenseAmount || parseFloat(expenseAmount) === 0 || !expenseCategory || !currentUser) {
+                console.error('Cannot add expense:', {
+                    expenseAmount,
+                    expenseCategory,
+                    currentUser: currentUser ? 'exists' : 'missing'
+                });
+                if (!expenseAmount || parseFloat(expenseAmount) === 0) {
+                    showBudgetNotification('danger', 'Please enter an amount');
+                } else if (!expenseCategory) {
+                    showBudgetNotification('danger', 'Please select a category');
+                } else if (!currentUser) {
+                    showBudgetNotification('danger', 'Please sign in to add expenses');
+                }
+                return;
+            }
             
             const btn = document.getElementById('addExpenseBtn');
             const isEditing = editingExpenseId !== null;
