@@ -60,11 +60,12 @@
         let billingCycleStart = new Date().toISOString().split('T')[0];
         let unsubscribeExpenses = null;
         let unsubscribeSettings = null;
-        let currentView = 'current'; // 'current', 'monthly', 'yearly', 'custom', 'customYear'
+        let currentView = 'current'; // 'current', 'monthly', 'yearly', 'custom', 'customYear', 'billingCycle'
         let searchQuery = '';
         let selectedCategory = '';
         let selectedMonth = null; // Format: 'YYYY-MM'
         let selectedYear = null; // Format: YYYY
+        let selectedBillingCycle = null; // Format: 'YYYY-MM-DD' (start date of cycle)
         let charts = {}; // Store chart instances
         let categories = []; // Will be loaded from Firebase
         let unsubscribeCategories = null;
@@ -95,8 +96,8 @@
             }
         });
 
-        function calculateCurrentCycle(cycleDay = billingCycleDay) {
-            const today = new Date();
+        function calculateCurrentCycle(cycleDay = billingCycleDay, referenceDate = null) {
+            const today = referenceDate || new Date();
             const currentDay = today.getDate();
             const currentMonth = today.getMonth();
             const currentYear = today.getFullYear();
@@ -232,6 +233,39 @@
             return Array.from(years).sort().reverse();
         }
 
+        function getAvailableBillingCycles() {
+            if (allExpenses.length === 0) return [];
+            
+            const cycles = new Map();
+            const sortedExpenses = [...allExpenses].sort((a, b) => new Date(a.date) - new Date(b.date));
+            const oldestExpense = new Date(sortedExpenses[0].date);
+            const newestExpense = new Date(sortedExpenses[sortedExpenses.length - 1].date);
+            
+            // Start from the oldest expense date
+            let cycleDate = new Date(oldestExpense);
+            
+            while (cycleDate <= newestExpense) {
+                const cycle = calculateCurrentCycle(billingCycleDay, cycleDate);
+                const cycleKey = cycle.startStr;
+                const cycleLabel = `${new Date(cycle.start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(cycle.end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+                
+                cycles.set(cycleKey, cycleLabel);
+                
+                // Move to next month
+                cycleDate.setMonth(cycleDate.getMonth() + 1);
+            }
+            
+            // Add current cycle if not already included
+            const currentCycle = calculateCurrentCycle(billingCycleDay);
+            const currentKey = currentCycle.startStr;
+            if (!cycles.has(currentKey)) {
+                const currentLabel = `${new Date(currentCycle.start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(currentCycle.end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} (Current)`;
+                cycles.set(currentKey, currentLabel);
+            }
+            
+            return Array.from(cycles.entries()).sort((a, b) => b[0].localeCompare(a[0]));
+        }
+
         function filterExpenses(expenseList) {
             let filtered = [...expenseList];
             
@@ -254,6 +288,14 @@
                 filtered = filtered.filter(expense => {
                     const expenseDate = new Date(expense.date);
                     return expenseDate.getFullYear() === selectedYear;
+                });
+            } else if (currentView === 'billingCycle' && selectedBillingCycle) {
+                // Filter by specific billing cycle
+                const cycleStartDate = new Date(selectedBillingCycle);
+                const cycle = calculateCurrentCycle(billingCycleDay, cycleStartDate);
+                filtered = filtered.filter(expense => {
+                    const expenseDate = new Date(expense.date);
+                    return expenseDate >= cycle.start && expenseDate <= cycle.end;
                 });
             }
             
@@ -492,6 +534,10 @@
                                     ${currentView === 'current' ? 'Current Billing Cycle' : 
                                       currentView === 'custom' && selectedMonth ? `${new Date(selectedMonth + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}` :
                                       currentView === 'customYear' && selectedYear ? `Year ${selectedYear}` :
+                                      currentView === 'billingCycle' && selectedBillingCycle ? (() => {
+                                          const cycle = calculateCurrentCycle(billingCycleDay, new Date(selectedBillingCycle));
+                                          return `${new Date(cycle.start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(cycle.end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+                                      })() :
                                       'All Time'}
                                 </h2>
                                 ${currentView === 'current' ? `
@@ -543,6 +589,18 @@
                             <button onclick="setView('current')" class="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors ${currentView === 'current' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'} touch-manipulation">
                                 Current Cycle
                             </button>
+                            <div class="relative">
+                                <button onclick="document.getElementById('billingCycleDropdown').classList.toggle('hidden')" class="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors ${currentView === 'billingCycle' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'} touch-manipulation">
+                                    Billing Cycle ▼
+                                </button>
+                                <div id="billingCycleDropdown" class="hidden absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border z-10 max-h-60 overflow-y-auto">
+                                    ${getAvailableBillingCycles().map(([cycleKey, cycleLabel]) => `
+                                        <button onclick="setBillingCycle('${cycleKey}')" class="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 whitespace-nowrap">
+                                            ${cycleLabel}
+                                        </button>
+                                    `).join('')}
+                                </div>
+                            </div>
                             <div class="relative">
                                 <button onclick="document.getElementById('monthDropdown').classList.toggle('hidden')" class="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors ${currentView === 'custom' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'} touch-manipulation">
                                     Month ▼
@@ -1564,6 +1622,7 @@
             currentView = view;
             selectedMonth = null;
             selectedYear = null;
+            selectedBillingCycle = null;
             filterAndRender();
         }
 
@@ -1571,6 +1630,7 @@
             currentView = 'custom';
             selectedMonth = monthKey;
             selectedYear = null;
+            selectedBillingCycle = null;
             document.getElementById('monthDropdown').classList.add('hidden');
             filterAndRender();
         }
@@ -1579,7 +1639,17 @@
             currentView = 'customYear';
             selectedMonth = null;
             selectedYear = year;
+            selectedBillingCycle = null;
             document.getElementById('yearDropdown').classList.add('hidden');
+            filterAndRender();
+        }
+
+        function setBillingCycle(cycleStartDate) {
+            currentView = 'billingCycle';
+            selectedMonth = null;
+            selectedYear = null;
+            selectedBillingCycle = cycleStartDate;
+            document.getElementById('billingCycleDropdown').classList.add('hidden');
             filterAndRender();
         }
 
@@ -1631,6 +1701,7 @@
         window.setView = setView;
         window.setCustomMonth = setCustomMonth;
         window.setCustomYear = setCustomYear;
+        window.setBillingCycle = setBillingCycle;
         window.setSearch = setSearch;
         window.setCategory = setCategory;
         window.editExpense = editExpense;
