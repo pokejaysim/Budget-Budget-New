@@ -9,38 +9,115 @@
     <!-- Chart.js for data visualization -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js';
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js';
-        import { getFirestore, collection, addDoc, query, where, orderBy, onSnapshot, deleteDoc, doc, serverTimestamp, setDoc, updateDoc, Timestamp } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js';
-
-        import { firebaseConfig } from './firebase-config.js';
-
-        // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-
-        // Make functions available globally
-        window.auth = auth;
+        import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js';
+        import { auth, subscribeToUserData } from './src/firebase-init.js';
+        import { unsubscribeExpenses, unsubscribeSettings, unsubscribeCategories, setCategories, currentUser, allExpenses, expenses, monthlyBudget, billingCycleDay, billingCycleStart, currentView, searchQuery, selectedCategory, selectedMonth, selectedYear, charts, categories, defaultCategories, editingExpenseId, expenseAmount, expenseCategory, expenseDescription, expenseDate, isRefund, setCurrentUser, setAllExpenses, setExpenses, setMonthlyBudget, setBillingCycleDay, setBillingCycleStart, setUnsubscribeExpenses, setUnsubscribeSettings, setCurrentView, setSearchQuery, setSelectedCategory, setSelectedMonth, setSelectedYear, setCharts, setCategories, setUnsubscribeCategories, setEditingExpenseId, setExpenseAmount, setExpenseCategory, setExpenseDescription, setExpenseDate, setIsRefund } from './src/state.js';
+        import { calculateCurrentCycle, filterExpenses, getAvailableMonths, getAvailableYears, checkBudgetAlert } from './src/utils.js';
+        import { getMonthlyData, getCategoryTrends, renderCharts } from './src/charts.js';
+        import { showBudgetNotification, showLogin, showApp, render, setView, setCustomMonth, setCustomYear, setSearch, setCategory, toggleAuthMode, editExpense, showAddExpense, showExpenseModal, setTransactionType, selectCategory, handleNumberPad, updateAmountDisplay, closeModal, showBudgetModal, showMasterResetModal, checkDeleteConfirmation, showCategoryManager, showAddCategory, selectEmoji, selectColor, exportToCSV } from './src/ui.js';
+        import { handleGoogleSignIn, handleAuth, handleLogout } from './src/firebase-init.js';
+        import { collection, doc, query, where, orderBy, onSnapshot, setDoc } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js';
+        import { db } from './src/firebase-init.js';
+        
+        // Make Firebase functions available globally
         window.db = db;
-        window.createUserWithEmailAndPassword = createUserWithEmailAndPassword;
-        window.signInWithEmailAndPassword = signInWithEmailAndPassword;
-        window.signOut = signOut;
-        window.onAuthStateChanged = onAuthStateChanged;
-        window.GoogleAuthProvider = GoogleAuthProvider;
-        window.signInWithPopup = signInWithPopup;
+        window.doc = doc;
         window.collection = collection;
-        window.addDoc = addDoc;
         window.query = query;
         window.where = where;
         window.orderBy = orderBy;
         window.onSnapshot = onSnapshot;
-        window.deleteDoc = deleteDoc;
-        window.doc = doc;
-        window.serverTimestamp = serverTimestamp;
         window.setDoc = setDoc;
-        window.updateDoc = updateDoc;
-        window.Timestamp = Timestamp;
+        
+        // Make imported functions available globally for onclick handlers
+        window.handleGoogleSignIn = handleGoogleSignIn;
+        window.handleAuth = handleAuth;
+        window.handleLogout = handleLogout;
+        window.toggleAuthMode = toggleAuthMode;
+        window.setView = setView;
+        window.setCustomMonth = setCustomMonth;
+        window.setCustomYear = setCustomYear;
+        window.setSearch = setSearch;
+        window.setCategory = setCategory;
+        window.editExpense = editExpense;
+        window.showAddExpense = showAddExpense;
+        window.showExpenseModal = showExpenseModal;
+        window.setTransactionType = setTransactionType;
+        window.selectCategory = selectCategory;
+        window.handleNumberPad = handleNumberPad;
+        window.updateAmountDisplay = updateAmountDisplay;
+        window.closeModal = closeModal;
+        window.showBudgetModal = showBudgetModal;
+        window.showMasterResetModal = showMasterResetModal;
+        window.checkDeleteConfirmation = checkDeleteConfirmation;
+        window.showCategoryManager = showCategoryManager;
+        window.showAddCategory = showAddCategory;
+        window.selectEmoji = selectEmoji;
+        window.selectColor = selectColor;
+        window.exportToCSV = exportToCSV;
+        window.showBudgetNotification = showBudgetNotification;
+        window.render = render;
+        
+        // Initialize auth listener after imports are loaded
+        onAuthStateChanged(auth, (user) => {
+            setCurrentUser(user);
+            if (user) {
+                subscribeToUserData();
+                showApp();
+            } else {
+                if (unsubscribeExpenses) setUnsubscribeExpenses(null);
+                if (unsubscribeSettings) setUnsubscribeSettings(null);
+                if (unsubscribeCategories) setUnsubscribeCategories(null);
+                setCategories([]);
+                showLogin();
+            }
+        });
+        
+        // Define filterAndRender using imported functions
+        window.filterAndRender = function() {
+            setExpenses(filterExpenses(allExpenses));
+            render();
+        };
+        
+        // Make state variables available globally
+        window.currentUser = currentUser;
+        window.allExpenses = allExpenses;
+        window.expenses = expenses;
+        window.monthlyBudget = monthlyBudget;
+        window.billingCycleDay = billingCycleDay;
+        window.billingCycleStart = billingCycleStart;
+        window.categories = categories;
+        window.defaultCategories = defaultCategories;
+        window.unsubscribeExpenses = unsubscribeExpenses;
+        window.unsubscribeSettings = unsubscribeSettings;
+        window.unsubscribeCategories = unsubscribeCategories;
+        
+        // Make state setters available globally
+        window.setCurrentUser = setCurrentUser;
+        window.setAllExpenses = setAllExpenses;
+        window.setExpenses = setExpenses;
+        window.setMonthlyBudget = setMonthlyBudget;
+        window.setBillingCycleDay = setBillingCycleDay;
+        window.setBillingCycleStart = setBillingCycleStart;
+        window.setCategories = setCategories;
+        window.setUnsubscribeExpenses = setUnsubscribeExpenses;
+        window.setUnsubscribeSettings = setUnsubscribeSettings;
+        window.setUnsubscribeCategories = setUnsubscribeCategories;
+        
+        // Make utility functions available globally
+        window.calculateCurrentCycle = calculateCurrentCycle;
+        window.filterExpenses = filterExpenses;
+        window.getAvailableMonths = getAvailableMonths;
+        window.getAvailableYears = getAvailableYears;
+        window.checkBudgetAlert = checkBudgetAlert;
+        
+        // Make chart functions available globally
+        window.getMonthlyData = getMonthlyData;
+        window.getCategoryTrends = getCategoryTrends;
+        window.renderCharts = renderCharts;
+        
+        // Make subscribeToUserData available globally
+        window.subscribeToUserData = subscribeToUserData;
     </script>
     <style>
         .animate-slide-up {
@@ -66,120 +143,35 @@
     <div id="app"></div>
 
     <script>
-        // Global state
-        let currentUser = null;
-        let allExpenses = []; // All expenses for the user
-        let expenses = []; // Filtered expenses
-        let monthlyBudget = 2000;
-        let billingCycleDay = 11; // Day of month when cycle closes
-        let billingCycleStart = new Date().toISOString().split('T')[0];
-        let unsubscribeExpenses = null;
-        let unsubscribeSettings = null;
-        let currentView = 'current'; // 'current', 'monthly', 'yearly', 'custom', 'customYear'
-        let searchQuery = '';
-        let selectedCategory = '';
-        let selectedMonth = null; // Format: 'YYYY-MM'
-        let selectedYear = null; // Format: YYYY
-        let charts = {}; // Store chart instances
-        let categories = []; // Will be loaded from Firebase
-        let unsubscribeCategories = null;
 
-        // Default categories (used as fallback and for new users)
-        const defaultCategories = [
-            { id: 'food', name: 'Food', emoji: '🍔', color: 'bg-orange-500', chartColor: '#f97316' },
-            { id: 'groceries', name: 'Groceries', emoji: '🛒', color: 'bg-green-500', chartColor: '#10b981' },
-            { id: 'transport', name: 'Transport', emoji: '🚗', color: 'bg-blue-500', chartColor: '#3b82f6' },
-            { id: 'shopping', name: 'Shopping', emoji: '🛍️', color: 'bg-pink-500', chartColor: '#ec4899' },
-            { id: 'bills', name: 'Bills', emoji: '📄', color: 'bg-gray-500', chartColor: '#6b7280' },
-            { id: 'fun', name: 'Fun', emoji: '🎬', color: 'bg-purple-500', chartColor: '#a855f7' },
-            { id: 'other', name: 'Other', emoji: '📦', color: 'bg-yellow-600', chartColor: '#eab308' }
-        ];
-
-        // Initialize auth listener after Firebase is loaded
-        document.addEventListener('DOMContentLoaded', () => {
-            onAuthStateChanged(auth, (user) => {
-                currentUser = user;
-                if (user) {
-                    subscribeToUserData();
-                    showApp();
-                } else {
-                    if (unsubscribeExpenses) unsubscribeExpenses();
-                    if (unsubscribeSettings) unsubscribeSettings();
-                    if (unsubscribeCategories) unsubscribeCategories();
-                    categories = [];
-                    showLogin();
-                }
-            });
-        });
-
-        function calculateCurrentCycle(cycleDay = billingCycleDay) {
-            const today = new Date();
-            const currentDay = today.getDate();
-            const currentMonth = today.getMonth();
-            const currentYear = today.getFullYear();
-            
-            let cycleStart, cycleEnd;
-            
-            // Helper function to get the actual day in a month (handles months with < 31 days)
-            function getValidDayInMonth(year, month, day) {
-                const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
-                return Math.min(day, lastDayOfMonth);
-            }
-            
-            // Cycle starts on the day after closing (e.g., 12th if closing is 11th)
-            const cycleStartDay = cycleDay + 1;
-            
-            if (currentDay >= cycleStartDay) {
-                // We're in a cycle that started this month
-                const validStartDay = getValidDayInMonth(currentYear, currentMonth, cycleStartDay);
-                const validEndDay = getValidDayInMonth(currentYear, currentMonth + 1, cycleDay);
-                
-                cycleStart = new Date(currentYear, currentMonth, validStartDay);
-                cycleEnd = new Date(currentYear, currentMonth + 1, validEndDay);
-            } else {
-                // We're in a cycle that started last month
-                const validStartDay = getValidDayInMonth(currentYear, currentMonth - 1, cycleStartDay);
-                const validEndDay = getValidDayInMonth(currentYear, currentMonth, cycleDay);
-                
-                cycleStart = new Date(currentYear, currentMonth - 1, validStartDay);
-                cycleEnd = new Date(currentYear, currentMonth, validEndDay);
-            }
-            
-            return {
-                start: cycleStart,
-                end: cycleEnd,
-                startStr: cycleStart.toISOString().split('T')[0],
-                endStr: cycleEnd.toISOString().split('T')[0]
-            };
-        }
 
         function subscribeToUserData() {
             // Initialize categories with defaults immediately to prevent undefined errors
-            categories = [...defaultCategories];
+            window.setCategories([...window.defaultCategories]);
             
             // Subscribe to user settings
-            const settingsRef = doc(db, 'userSettings', currentUser.uid);
-            unsubscribeSettings = onSnapshot(settingsRef, (doc) => {
+            const settingsRef = doc(db, 'userSettings', window.currentUser.uid);
+            window.setUnsubscribeSettings(onSnapshot(settingsRef, (doc) => {
                 if (doc.exists()) {
                     const data = doc.data();
-                    monthlyBudget = data.monthlyBudget || 2000;
-                    billingCycleDay = data.billingCycleDay || 11;
+                    window.setMonthlyBudget(data.monthlyBudget || 2000);
+                    window.setBillingCycleDay(data.billingCycleDay || 11);
                     
                     // Auto-calculate current cycle based on cycle day
-                    const currentCycle = calculateCurrentCycle(billingCycleDay);
-                    billingCycleStart = currentCycle.startStr;
+                    const currentCycle = window.calculateCurrentCycle(window.billingCycleDay);
+                    window.setBillingCycleStart(currentCycle.startStr);
                 }
                 filterAndRender();
-            });
+            }));
 
             // Subscribe to user categories
-            const categoriesRef = doc(db, 'userCategories', currentUser.uid);
-            unsubscribeCategories = onSnapshot(categoriesRef, async (doc) => {
+            const categoriesRef = doc(db, 'userCategories', window.currentUser.uid);
+            window.setUnsubscribeCategories(onSnapshot(categoriesRef, async (doc) => {
                 if (doc.exists()) {
-                    categories = doc.data().categories || defaultCategories;
+                    window.setCategories(doc.data().categories || window.defaultCategories);
                 } else {
                     // Initialize with default categories for new users
-                    categories = defaultCategories;
+                    window.setCategories(window.defaultCategories);
                     try {
                         await setDoc(categoriesRef, { categories: defaultCategories });
                     } catch (error) {
@@ -191,19 +183,19 @@
             }, (error) => {
                 console.error('Error loading categories:', error);
                 // Use default categories if there's an error
-                categories = defaultCategories;
+                window.setCategories(window.defaultCategories);
                 filterAndRender();
-            });
+            }));
 
             // Subscribe to ALL expenses (not just current billing cycle)
             const q = query(
                 collection(db, 'expenses'),
-                where('userId', '==', currentUser.uid),
+                where('userId', '==', window.currentUser.uid),
                 orderBy('date', 'desc')
             );
 
-            unsubscribeExpenses = onSnapshot(q, (snapshot) => {
-                allExpenses = [];
+            window.setUnsubscribeExpenses(onSnapshot(q, (snapshot) => {
+                const newAllExpenses = [];
                 snapshot.forEach((doc) => {
                     const expenseData = doc.data();
                     const expense = {
@@ -217,177 +209,20 @@
                         console.warn('Expense has unknown category:', expense.id, 'Category ID:', expense.category);
                     }
                     
-                    allExpenses.push(expense);
+                    newAllExpenses.push(expense);
                 });
-                filterAndRender();
-                checkBudgetAlert();
-            });
-        }
-
-        function filterAndRender() {
-            // Filter expenses based on current view and search
-            expenses = filterExpenses(allExpenses);
-            render();
-        }
-
-        function getAvailableMonths() {
-            const months = new Set();
-            allExpenses.forEach(expense => {
-                const date = new Date(expense.date);
-                const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-                months.add(monthKey);
-            });
-            return Array.from(months).sort().reverse();
-        }
-
-        function getAvailableYears() {
-            const years = new Set();
-            allExpenses.forEach(expense => {
-                const date = new Date(expense.date);
-                years.add(date.getFullYear());
-            });
-            return Array.from(years).sort().reverse();
-        }
-
-        function filterExpenses(expenseList) {
-            let filtered = [...expenseList];
-
-            // Filter by time period
-            const now = new Date();
-            if (currentView === 'current') {
-                const startDate = new Date(billingCycleStart);
-                filtered = filtered.filter(e => new Date(e.date) >= startDate);
-            } else if (currentView === 'monthly') {
-                const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-                filtered = filtered.filter(e => new Date(e.date) >= startOfMonth);
-            } else if (currentView === 'yearly') {
-                const startOfYear = new Date(now.getFullYear(), 0, 1);
-                filtered = filtered.filter(e => new Date(e.date) >= startOfYear);
-            } else if (currentView === 'custom' && selectedMonth) {
-                const [year, month] = selectedMonth.split('-');
-                const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
-                const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59);
-                filtered = filtered.filter(e => {
-                    const expenseDate = new Date(e.date);
-                    return expenseDate >= startDate && expenseDate <= endDate;
-                });
-            } else if (currentView === 'customYear' && selectedYear) {
-                const startDate = new Date(selectedYear, 0, 1);
-                const endDate = new Date(selectedYear, 11, 31, 23, 59, 59);
-                filtered = filtered.filter(e => {
-                    const expenseDate = new Date(e.date);
-                    return expenseDate >= startDate && expenseDate <= endDate;
-                });
-            }
-
-            // Filter by search query
-            if (searchQuery) {
-                filtered = filtered.filter(e => 
-                    e.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    categories.find(c => c.id === e.category)?.name.toLowerCase().includes(searchQuery.toLowerCase())
-                );
-            }
-
-            // Filter by category
-            if (selectedCategory) {
-                filtered = filtered.filter(e => e.category === selectedCategory);
-            }
-
-            return filtered;
-        }
-
-        function checkBudgetAlert() {
-            const currentCycleExpenses = filterExpenses(allExpenses.filter(e => {
-                const startDate = new Date(billingCycleStart);
-                return new Date(e.date) >= startDate;
+                window.setAllExpenses(newAllExpenses);
+                window.filterAndRender();
+                window.checkBudgetAlert();
             }));
-            
-            const totalSpent = currentCycleExpenses.reduce((sum, expense) => sum + expense.amount, 0);
-            const budgetPercentage = (totalSpent / monthlyBudget) * 100;
-
-            // Show alert if over 80% of budget
-            if (budgetPercentage >= 80 && budgetPercentage < 100) {
-                showBudgetNotification('warning', `You've used ${budgetPercentage.toFixed(0)}% of your budget!`);
-            } else if (budgetPercentage >= 100) {
-                showBudgetNotification('danger', `You're over budget by $${(totalSpent - monthlyBudget).toFixed(2)}!`);
-            }
         }
 
-        function showBudgetNotification(type, message) {
-            const existingNotification = document.getElementById('budget-notification');
-            if (existingNotification) existingNotification.remove();
 
-            const notification = document.createElement('div');
-            notification.id = 'budget-notification';
-            notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 animate-slide-up ${
-                type === 'danger' ? 'bg-red-500 text-white' : 
-                type === 'success' ? 'bg-green-500 text-white' : 'bg-yellow-500 text-white'
-            }`;
-            notification.innerHTML = `
-                <div class="flex items-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        ${type === 'success' ? 
-                            '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />' :
-                            '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />'
-                        }
-                    </svg>
-                    <span>${message}</span>
-                </div>
-            `;
-            document.body.appendChild(notification);
-            setTimeout(() => notification.remove(), 5000);
-        }
 
-        function getMonthlyData() {
-            const monthlyTotals = {};
-            const now = new Date();
-            
-            // Initialize last 6 months
-            for (let i = 5; i >= 0; i--) {
-                const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-                const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-                monthlyTotals[key] = 0;
-            }
 
-            // Sum expenses by month
-            allExpenses.forEach(expense => {
-                const date = new Date(expense.date);
-                const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-                if (monthlyTotals.hasOwnProperty(key)) {
-                    monthlyTotals[key] += expense.amount;
-                }
-            });
 
-            return monthlyTotals;
-        }
 
-        function getCategoryTrends() {
-            const trends = {};
-            const now = new Date();
-            
-            // Initialize categories for last 6 months
-            categories.forEach(cat => {
-                trends[cat.id] = {};
-                for (let i = 5; i >= 0; i--) {
-                    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-                    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-                    trends[cat.id][key] = 0;
-                }
-            });
 
-            // Sum expenses by category and month
-            allExpenses.forEach(expense => {
-                const date = new Date(expense.date);
-                const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-                const monthStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
-                
-                if (date >= monthStart && trends[expense.category]) {
-                    trends[expense.category][key] = (trends[expense.category][key] || 0) + expense.amount;
-                }
-            });
-
-            return trends;
-        }
 
         function showLogin() {
             document.getElementById('app').innerHTML = `
@@ -1818,6 +1653,17 @@
             document.body.removeChild(link);
             window.URL.revokeObjectURL(url);
         }
+        
+        // Make functions available globally
+        window.handleAddExpense = handleAddExpense;
+        window.saveBudget = saveBudget;
+        window.handleResetBilling = handleResetBilling;
+        window.handleDeleteExpense = handleDeleteExpense;
+        window.handleMasterReset = handleMasterReset;
+        window.saveNewCategory = saveNewCategory;
+        window.editCategory = editCategory;
+        window.updateCategory = updateCategory;
+        window.deleteCategory = deleteCategory;
     </script>
 </body>
 </html>

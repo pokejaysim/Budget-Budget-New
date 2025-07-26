@@ -1,36 +1,3 @@
-
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js';
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js';
-import { getFirestore, collection, addDoc, query, where, orderBy, onSnapshot, deleteDoc, doc, serverTimestamp, setDoc, updateDoc, Timestamp } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js';
-import { firebaseConfig } from './firebase-config.js';
-
-// Initialize Firebase
-export const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-
-// Make functions available globally (for now, will refactor later)
-window.auth = auth;
-window.db = db;
-window.createUserWithEmailAndPassword = createUserWithEmailAndPassword;
-window.signInWithEmailAndPassword = signInWithEmailAndPassword;
-window.signOut = signOut;
-window.onAuthStateChanged = onAuthStateChanged;
-window.GoogleAuthProvider = GoogleAuthProvider;
-window.signInWithPopup = signInWithPopup;
-window.collection = collection;
-window.addDoc = addDoc;
-window.query = query;
-window.where = where;
-window.orderBy = orderBy;
-window.onSnapshot = onSnapshot;
-window.deleteDoc = deleteDoc;
-window.doc = doc;
-window.serverTimestamp = serverTimestamp;
-window.setDoc = setDoc;
-window.updateDoc = updateDoc;
-window.Timestamp = Timestamp;
-
 // Global state
 export let currentUser = null;
 export let allExpenses = []; // All expenses for the user
@@ -49,6 +16,14 @@ export let charts = {}; // Store chart instances
 export let categories = []; // Will be loaded from Firebase
 export let unsubscribeCategories = null;
 
+// Modal state
+export let editingExpenseId = null;
+export let expenseAmount = '';
+export let expenseCategory = '';
+export let expenseDescription = '';
+export let expenseDate = new Date().toISOString().split('T')[0];
+export let isRefund = false;
+
 // Default categories (used as fallback and for new users)
 export const defaultCategories = [
     { id: 'food', name: 'Food', emoji: '🍔', color: 'bg-orange-500', chartColor: '#f97316' },
@@ -60,7 +35,7 @@ export const defaultCategories = [
     { id: 'other', name: 'Other', emoji: '📦', color: 'bg-yellow-600', chartColor: '#eab308' }
 ];
 
-// Functions to update state (will be moved to a separate state management file later)
+// Functions to update state
 export function setCurrentUser(user) { currentUser = user; }
 export function setAllExpenses(exp) { allExpenses = exp; }
 export function setExpenses(exp) { expenses = exp; }
@@ -77,3 +52,11 @@ export function setSelectedYear(year) { selectedYear = year; }
 export function setCharts(chartObj) { charts = chartObj; }
 export function setCategories(cats) { categories = cats; }
 export function setUnsubscribeCategories(unsub) { unsubscribeCategories = unsub; }
+
+// Modal state setters
+export function setEditingExpenseId(id) { editingExpenseId = id; }
+export function setExpenseAmount(amount) { expenseAmount = amount; }
+export function setExpenseCategory(category) { expenseCategory = category; }
+export function setExpenseDescription(desc) { expenseDescription = desc; }
+export function setExpenseDate(date) { expenseDate = date; }
+export function setIsRefund(refund) { isRefund = refund; }
