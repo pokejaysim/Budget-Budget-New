@@ -13,15 +13,7 @@
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js';
         import { getFirestore, collection, addDoc, query, where, orderBy, onSnapshot, deleteDoc, doc, serverTimestamp, setDoc, updateDoc, Timestamp } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js';
 
-        // Your Firebase config
-        const firebaseConfig = {
-            apiKey: "AIzaSyAVmyc6PDfrVNvNLCjpJ5Q6mgf_OtABCjk",
-            authDomain: "new-budget-buddy.firebaseapp.com",
-            projectId: "new-budget-buddy",
-            storageBucket: "new-budget-buddy.firebasestorage.app",
-            messagingSenderId: "158961105774",
-            appId: "1:158961105774:web:abc0595f893b2715d59f7f"
-        };
+        import { firebaseConfig } from './firebase-config.js';
 
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
