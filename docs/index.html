@@ -956,7 +956,7 @@
             };
             
             modal.innerHTML = `
-                <div class="bg-white w-full sm:max-w-md sm:rounded-xl rounded-t-xl p-4 sm:p-6 animate-slide-up">
+                <div class="bg-white w-full sm:max-w-md sm:rounded-xl rounded-t-xl p-4 sm:p-6 animate-slide-up max-h-[90vh] overflow-y-auto mobile-scroll pb-safe">
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-lg font-semibold text-gray-900">${title}</h3>
                         <button onclick="closeModal()" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
@@ -977,8 +977,9 @@
                     </div>
 
                     <!-- Amount Display -->
-                    <div class="bg-gray-50 rounded-lg p-4 mb-4 text-center">
-                        <div class="text-3xl font-bold text-gray-900">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-4 text-center">
+                        <div class="text-xs text-gray-600 mb-2">Amount</div>
+                        <div class="text-5xl sm:text-3xl font-bold text-gray-900">
                             ${isRefund ? '+' : '-'}$<span id="amountDisplay">${expenseAmount || '0'}</span>
                         </div>
                     </div>
@@ -1021,7 +1022,7 @@
                     <div class="grid grid-cols-3 gap-2 mb-4">
                         ${[1,2,3,4,5,6,7,8,9,'.',0,'⌫'].map(num => `
                             <button onclick="handleNumberPad('${num}')" 
-                                class="py-3 text-lg font-medium bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors touch-manipulation">
+                                class="py-5 sm:py-3 text-2xl sm:text-lg font-semibold bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors touch-manipulation active:bg-gray-300 active:scale-95">
                                 ${num}
                             </button>
                         `).join('')}
@@ -1096,13 +1097,32 @@
                 if (parts.length === 2 && parts[1].length >= 2) {
                     return;
                 }
-                expenseAmount += value;
+                // Limit total length to prevent overflow
+                if (expenseAmount.length < 10) {
+                    expenseAmount += value;
+                }
             }
             updateAmountDisplay();
+            
+            // Add haptic feedback on mobile
+            if ('vibrate' in navigator) {
+                navigator.vibrate(10);
+            }
         }
 
         function updateAmountDisplay() {
-            document.getElementById('amountDisplay').textContent = expenseAmount || '0';
+            const display = document.getElementById('amountDisplay');
+            if (display) {
+                display.textContent = expenseAmount || '0';
+                // Scale font size if number gets too long
+                if (expenseAmount.length > 7) {
+                    display.parentElement.classList.remove('text-5xl');
+                    display.parentElement.classList.add('text-4xl');
+                } else {
+                    display.parentElement.classList.remove('text-4xl');
+                    display.parentElement.classList.add('text-5xl');
+                }
+            }
         }
 
         async function handleAddExpense() {
