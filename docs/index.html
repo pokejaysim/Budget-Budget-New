@@ -1450,6 +1450,12 @@
         }
 
         async function saveNewCategory() {
+            // Get the current value from the input field
+            const nameInput = document.getElementById('categoryNameInput');
+            if (nameInput) {
+                newCategoryName = nameInput.value;
+            }
+            
             if (!newCategoryName.trim()) {
                 showBudgetNotification('danger', 'Please enter a category name');
                 return;
