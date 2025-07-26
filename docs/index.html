@@ -985,7 +985,38 @@
 
         function setTransactionType(refund) {
             isRefund = refund;
-            showExpenseModal(editingExpenseId ? 'Edit Expense' : 'Add Expense');
+            // Update the UI without recreating the modal
+            const expenseBtn = document.querySelector('[onclick="setTransactionType(false)"]');
+            const refundBtn = document.querySelector('[onclick="setTransactionType(true)"]');
+            
+            if (expenseBtn && refundBtn) {
+                if (refund) {
+                    expenseBtn.className = "flex-1 py-2 rounded-md text-sm font-medium transition-colors text-gray-600";
+                    refundBtn.className = "flex-1 py-2 rounded-md text-sm font-medium transition-colors bg-white text-gray-900 shadow-sm";
+                } else {
+                    expenseBtn.className = "flex-1 py-2 rounded-md text-sm font-medium transition-colors bg-white text-gray-900 shadow-sm";
+                    refundBtn.className = "flex-1 py-2 rounded-md text-sm font-medium transition-colors text-gray-600";
+                }
+            }
+            
+            // Update the amount display sign
+            const amountDisplay = document.getElementById('amountDisplay');
+            if (amountDisplay && amountDisplay.parentElement) {
+                const signSpan = amountDisplay.parentElement;
+                signSpan.innerHTML = `${refund ? '+' : '-'}$<span id="amountDisplay">${expenseAmount || '0'}</span>`;
+            }
+            
+            // Update the description placeholder
+            const descInput = document.querySelector('input[placeholder*="What did you spend on"]');
+            if (descInput) {
+                descInput.placeholder = refund ? 'Refund for...' : 'What did you spend on?';
+            }
+            
+            // Update the button text
+            const addBtn = document.getElementById('addExpenseBtn');
+            if (addBtn && !editingExpenseId) {
+                addBtn.textContent = refund ? 'Add Refund' : 'Add Expense';
+            }
         }
 
         function selectCategory(catId) {
