@@ -974,7 +974,7 @@
                         `).join('')}
                     </div>
 
-                    <button onclick="handleAddExpense()" class="w-full bg-blue-500 text-white py-3 sm:py-4 rounded-xl font-semibold hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors mt-4 touch-manipulation">
+                    <button id="addExpenseBtn" onclick="handleAddExpense()" class="w-full bg-blue-500 text-white py-3 sm:py-4 rounded-xl font-semibold hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors mt-4 touch-manipulation">
                         ${editingExpenseId ? 'Update' : (isRefund ? 'Add Refund' : 'Add Expense')}
                     </button>
                 </div>
