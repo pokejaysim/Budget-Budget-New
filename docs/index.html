@@ -661,25 +661,23 @@
                         </div>
 
                         <!-- Charts Section -->
-                        ${currentView !== 'current' ? `
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
-                                <!-- Monthly Spending Trend -->
-                                <div class="bg-white rounded-xl shadow-sm border p-4 sm:p-6">
-                                    <h3 class="text-base sm:text-lg font-semibold text-gray-900 mb-4">Monthly Spending Trend</h3>
-                                    <div class="chart-container">
-                                        <canvas id="monthlyChart"></canvas>
-                                    </div>
-                                </div>
-
-                                <!-- Category Breakdown -->
-                                <div class="bg-white rounded-xl shadow-sm border p-4 sm:p-6">
-                                    <h3 class="text-base sm:text-lg font-semibold text-gray-900 mb-4">Category Breakdown</h3>
-                                    <div class="chart-container">
-                                        <canvas id="categoryChart"></canvas>
-                                    </div>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
+                            <!-- Monthly Spending Trend -->
+                            <div class="bg-white rounded-xl shadow-sm border p-4 sm:p-6">
+                                <h3 class="text-base sm:text-lg font-semibold text-gray-900 mb-4">Monthly Spending Trend</h3>
+                                <div class="chart-container">
+                                    <canvas id="monthlyChart"></canvas>
                                 </div>
                             </div>
-                        ` : ''}
+
+                            <!-- Category Breakdown -->
+                            <div class="bg-white rounded-xl shadow-sm border p-4 sm:p-6">
+                                <h3 class="text-base sm:text-lg font-semibold text-gray-900 mb-4">Category Breakdown</h3>
+                                <div class="chart-container">
+                                    <canvas id="categoryChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
 
                         <!-- Expenses List -->
                         <div class="bg-white rounded-xl shadow-sm border">
@@ -754,10 +752,8 @@
                 </div>
             `;
 
-            // Initialize charts if not in current view
-            if (currentView !== 'current') {
-                setTimeout(() => renderCharts(), 100);
-            }
+            // Initialize charts
+            setTimeout(() => renderCharts(), 100);
         }
 
         function renderCharts() {
