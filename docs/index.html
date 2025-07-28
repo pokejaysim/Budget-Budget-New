@@ -628,6 +628,9 @@
                                         <p class="text-lg sm:text-2xl font-bold ${budgetRemaining >= 0 ? 'text-green-600' : 'text-red-600'}">
                                             $${Math.abs(budgetRemaining).toFixed(2)}
                                         </p>
+                                        <p class="text-xs text-gray-500">
+                                            ${monthlyBudget > 0 ? ((budgetRemaining / monthlyBudget) * 100).toFixed(1) : 0}%
+                                        </p>
                                     </div>
                                     <div>
                                         <p class="text-xs sm:text-sm text-gray-600">Days Left</p>
