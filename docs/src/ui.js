@@ -246,10 +246,7 @@ export function render() {
                                 }" style="width: ${Math.min(budgetPercentage, 100)}%"></div>
                             </div>
                             <p class="text-xs mt-1 opacity-75">
-                                ${budgetRemaining >= 0 
-                                    ? `$${budgetRemaining.toFixed(2)} remaining`
-                                    : `$${Math.abs(budgetRemaining).toFixed(2)} over budget`
-                                }
+                                $${totalSpent.toFixed(2)} of $${monthlyBudget.toFixed(2)} used
                             </p>
                         </div>
                     ` : ''}
