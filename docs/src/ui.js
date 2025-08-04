@@ -368,9 +368,9 @@ export function render() {
             </div>
 
             <!-- Floating Add Button -->
-            <button onclick="showAddExpense()" class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 bg-blue-500 text-white rounded-full p-3 sm:p-4 shadow-lg hover:bg-blue-600 transition-all z-10">
-                <svg class="w-6 h-6 sm:w-7 sm:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0-2.08-.402-2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <button onclick="showAddExpense()" class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 bg-blue-500 text-white rounded-full shadow-lg hover:bg-blue-600 active:bg-blue-700 transition-all z-10 touch-manipulation select-none min-w-[56px] min-h-[56px] w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center" style="min-height: 56px; min-width: 56px;">
+                <svg class="w-7 h-7 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
                 </svg>
             </button>
         </div>
@@ -508,22 +508,22 @@ export function showExpenseModal(title) {
                     <input type="date" id="expenseDate" value="${expenseDate}" max="${new Date().toISOString().split('T')[0]}" class="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
 
-                <div class="grid grid-cols-3 gap-1.5 sm:gap-2 mt-4">
+                <div class="grid grid-cols-3 gap-2 sm:gap-3 mt-4">
                     ${['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'delete'].map(btn => `
-                        <button onclick="handleNumberPad('${btn}')" class="p-3 sm:p-4 text-lg sm:text-xl font-semibold rounded-lg transition-all touch-manipulation ${
-                            btn === 'delete' ? 'bg-red-100 hover:bg-red-200 text-red-600' : 'bg-gray-100 hover:bg-gray-200'
-                        }">
-                            ${btn === 'delete' ? `<svg class="w-5 h-5 sm:w-6 sm:h-6 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 12l6.414 6.414a2 2 0 001.414.586H19a2 2 0 002-2V7a2 2 0 00-2-2h-8.172a2 2 0 00-1.414.586L3 12z" />
+                        <button onclick="handleNumberPadPress('${btn}')" onmousedown="addPressEffect(this)" onmouseup="removePressEffect(this)" onmouseleave="removePressEffect(this)" ontouchstart="addPressEffect(this)" ontouchend="removePressEffect(this)" class="select-none touch-manipulation min-h-[48px] min-w-[48px] p-4 sm:p-5 text-xl sm:text-2xl font-bold rounded-lg transition-all duration-150 ${
+                            btn === 'delete' ? 'bg-red-100 hover:bg-red-200 active:bg-red-300 text-red-700' : 'bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-800'
+                        }" style="min-height: 48px; min-width: 48px;">
+                            ${btn === 'delete' ? `<svg class="w-6 h-6 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 12l6.414 6.414a2 2 0 001.414.586H19a2 2 0 002-2V7a2 2 0 00-2-2h-8.172a2 2 0 00-1.414.586L3 12z" />
                             </svg>` : btn}
                         </button>
                     `).join('')}
-                    <button onclick="handleNumberPad('clear')" class="col-span-3 p-3 sm:p-4 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-semibold touch-manipulation">
+                    <button onclick="handleNumberPadPress('clear')" onmousedown="addPressEffect(this)" onmouseup="removePressEffect(this)" onmouseleave="removePressEffect(this)" ontouchstart="addPressEffect(this)" ontouchend="removePressEffect(this)" class="col-span-3 select-none touch-manipulation min-h-[48px] p-4 sm:p-5 bg-gray-200 hover:bg-gray-300 active:bg-gray-400 text-gray-800 rounded-lg font-bold transition-all duration-150" style="min-height: 48px;">
                         Clear
                     </button>
                 </div>
 
-                <button onclick="handleAddExpense()" class="w-full bg-blue-500 text-white py-3 sm:py-4 rounded-xl font-semibold hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors mt-4 touch-manipulation">
+                <button onclick="handleAddExpense()" class="w-full bg-blue-500 text-white py-4 sm:py-5 rounded-xl font-semibold hover:bg-blue-600 active:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-150 mt-4 touch-manipulation select-none min-h-[52px]" style="min-height: 52px;">
                     ${editingExpenseId ? 'Update Expense' : 'Add Expense'}
                 </button>
             </div>
@@ -605,6 +605,26 @@ export function handleNumberPad(value) {
         setExpenseAmount(expenseAmount + value);
     }
     updateAmountDisplay();
+}
+
+export function handleNumberPadPress(value) {
+    // Add haptic feedback if available
+    if (navigator.vibrate) {
+        navigator.vibrate(25);
+    }
+    
+    // Call the original function
+    handleNumberPad(value);
+}
+
+export function addPressEffect(element) {
+    element.style.transform = 'scale(0.95)';
+    element.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.2)';
+}
+
+export function removePressEffect(element) {
+    element.style.transform = 'scale(1)';
+    element.style.boxShadow = '';
 }
 
 export function updateAmountDisplay() {
