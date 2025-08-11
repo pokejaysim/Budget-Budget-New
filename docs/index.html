@@ -21,6 +21,12 @@
             height: 200px;
             width: 100%;
         }
+        .bottom-full {
+            bottom: 100%;
+        }
+        .max-h-60vh {
+            max-height: 60vh;
+        }
         @media (min-width: 640px) {
             .chart-container {
                 height: 300px;
@@ -2049,15 +2055,20 @@
             }
         }
 
-        // Mobile-friendly dropdown toggle
+        // Mobile-friendly dropdown toggle with smart positioning
         function toggleDropdown(dropdownId) {
             const dropdown = document.getElementById(dropdownId);
+            const button = dropdown.previousElementSibling;
             const isMobile = window.innerWidth < 640;
             
             // Close other dropdowns
             ['billingCycleDropdown', 'monthDropdown', 'yearDropdown'].forEach(id => {
                 if (id !== dropdownId) {
-                    document.getElementById(id).classList.add('hidden');
+                    const otherDropdown = document.getElementById(id);
+                    otherDropdown.classList.add('hidden');
+                    // Reset positioning classes
+                    otherDropdown.classList.remove('bottom-full', 'top-full');
+                    otherDropdown.classList.add('top-full');
                 }
             });
             
@@ -2070,20 +2081,43 @@
             if (dropdown.classList.contains('hidden')) {
                 dropdown.classList.remove('hidden');
                 
+                // Smart positioning - check if there's enough space below
+                const buttonRect = button.getBoundingClientRect();
+                const viewportHeight = window.innerHeight;
+                const spaceBelow = viewportHeight - buttonRect.bottom;
+                const spaceAbove = buttonRect.top;
+                const dropdownHeight = 240; // max-height is 60 (15rem = 240px)
+                
+                // Position above if not enough space below and there's more space above
+                if (spaceBelow < dropdownHeight && spaceAbove > spaceBelow) {
+                    dropdown.classList.remove('top-full');
+                    dropdown.classList.add('bottom-full');
+                    dropdown.style.marginBottom = '0.25rem';
+                    dropdown.style.marginTop = '0';
+                } else {
+                    dropdown.classList.remove('bottom-full');
+                    dropdown.classList.add('top-full');
+                    dropdown.style.marginTop = '0.25rem';
+                    dropdown.style.marginBottom = '0';
+                }
+                
                 if (isMobile) {
                     // Add overlay for mobile
                     const overlay = document.createElement('div');
-                    overlay.className = 'dropdown-overlay';
+                    overlay.className = 'dropdown-overlay fixed inset-0 bg-black bg-opacity-25 z-40';
                     overlay.onclick = () => {
                         dropdown.classList.add('hidden');
                         overlay.remove();
                     };
                     document.body.appendChild(overlay);
                     
-                    // Make dropdown mobile-friendly
-                    dropdown.classList.add('dropdown-mobile', 'mobile-scroll');
+                    // Make dropdown mobile-friendly - position at bottom of screen
+                    dropdown.classList.remove('bottom-full', 'top-full');
+                    dropdown.classList.add('fixed', 'bottom-0', 'left-0', 'right-0', 'max-h-60vh');
+                    dropdown.style.marginTop = '0';
+                    dropdown.style.marginBottom = '0';
                 } else {
-                    dropdown.classList.remove('dropdown-mobile', 'mobile-scroll');
+                    dropdown.classList.remove('fixed', 'bottom-0', 'left-0', 'right-0', 'max-h-60vh');
                 }
             } else {
                 dropdown.classList.add('hidden');
