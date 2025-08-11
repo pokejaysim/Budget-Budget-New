@@ -2089,6 +2089,9 @@
             }
         }
         
+        // Make toggleDropdown globally available
+        window.toggleDropdown = toggleDropdown;
+        
         // Close dropdowns when clicking outside
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.relative')) {
