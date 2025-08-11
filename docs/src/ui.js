@@ -569,6 +569,9 @@ export function setTransactionType(refund) {
     const addBtn = document.getElementById('addExpenseBtn');
     const refundNote = document.getElementById('refundNote');
     
+    console.log('setTransactionType called with refund:', refund);
+    console.log('refundNote element:', refundNote);
+    
     if (refund) {
         if (!editingExpenseId) modalTitle.textContent = 'Add Refund/Credit';
         expenseBtn.className = 'flex-1 py-2 px-4 rounded-lg border-2 border-gray-200 text-gray-700 font-medium transition-all';
