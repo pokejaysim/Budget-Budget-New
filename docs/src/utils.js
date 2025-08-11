@@ -1,5 +1,5 @@
 
-import { allExpenses, billingCycleStart, monthlyBudget, currentView, searchQuery, categories, selectedCategory, selectedMonth, selectedYear, setExpenses, expenses, setCharts, charts, billingCycleDay } from './state.js';
+import { allExpenses, billingCycleStart, monthlyBudget, currentView, searchQuery, categories, selectedCategory, selectedMonth, selectedYear, setExpenses, expenses, setCharts, charts } from './state.js';
 import { showBudgetNotification } from './ui.js';
 
 export function calculateCurrentCycle(cycleDay) {
@@ -50,12 +50,7 @@ export function filterExpenses(expenseList) {
     const now = new Date();
     if (currentView === 'current') {
         const startDate = new Date(billingCycleStart);
-        const currentCycle = calculateCurrentCycle(billingCycleDay);
-        const endDate = new Date(currentCycle.end);
-        filtered = filtered.filter(e => {
-            const expenseDate = new Date(e.date);
-            return expenseDate >= startDate && expenseDate <= endDate;
-        });
+        filtered = filtered.filter(e => new Date(e.date) >= startDate);
     } else if (currentView === 'monthly') {
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         filtered = filtered.filter(e => new Date(e.date) >= startOfMonth);
