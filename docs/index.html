@@ -380,15 +380,20 @@
                 cycleDate.setMonth(cycleDate.getMonth() + 1);
             }
             
-            // Add current cycle if not already included
+            // Always add current cycle first, and mark existing one as current if it exists
             const currentCycle = calculateCurrentCycle(billingCycleDay);
             const currentKey = currentCycle.startStr;
-            if (!cycles.has(currentKey)) {
-                const currentLabel = `${new Date(currentCycle.start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(currentCycle.end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} (Current)`;
-                cycles.set(currentKey, currentLabel);
-            }
+            const currentLabel = `${new Date(currentCycle.start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(currentCycle.end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} (Current)`;
             
-            return Array.from(cycles.entries()).sort((a, b) => b[0].localeCompare(a[0]));
+            // Update existing entry to show as current, or add new one
+            cycles.set(currentKey, currentLabel);
+            
+            return Array.from(cycles.entries()).sort((a, b) => {
+                // Sort with current cycle first, then by date descending
+                if (a[0] === currentKey) return -1;
+                if (b[0] === currentKey) return 1;
+                return b[0].localeCompare(a[0]);
+            });
         }
 
         function filterExpenses(expenseList) {
@@ -1903,6 +1908,7 @@
             selectedYear = null;
             selectedBillingCycle = cycleStartDate;
             document.getElementById('billingCycleDropdown').classList.add('hidden');
+            console.log('Setting billing cycle to:', cycleStartDate); // Debug log
             filterAndRender();
         }
 
