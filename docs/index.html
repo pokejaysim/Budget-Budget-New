@@ -723,7 +723,7 @@
                                 <button onclick="toggleDropdown('billingCycleDropdown')" class="px-3 py-2 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors ${currentView === 'billingCycle' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'} touch-manipulation whitespace-nowrap">
                                     Billing Cycle ▼
                                 </button>
-                                <div id="billingCycleDropdown" class="hidden absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border z-10 max-h-60 overflow-y-auto sm:min-w-[200px]">
+                                <div id="billingCycleDropdown" class="hidden absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border z-50 max-h-60 overflow-y-auto sm:min-w-[200px]">
                                     ${getAvailableBillingCycles().map(([cycleKey, cycleLabel]) => `
                                         <button onclick="setBillingCycle('${cycleKey}')" class="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 whitespace-nowrap">
                                             ${cycleLabel}
@@ -735,7 +735,7 @@
                                 <button onclick="toggleDropdown('monthDropdown')" class="px-3 py-2 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors ${currentView === 'custom' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'} touch-manipulation whitespace-nowrap">
                                     Month ▼
                                 </button>
-                                <div id="monthDropdown" class="hidden absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border z-10 max-h-60 overflow-y-auto sm:min-w-[200px]">
+                                <div id="monthDropdown" class="hidden absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border z-50 max-h-60 overflow-y-auto sm:min-w-[200px]">
                                     ${getAvailableMonths().map(month => `
                                         <button onclick="setCustomMonth('${month}')" class="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 whitespace-nowrap">
                                             ${new Date(month + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
@@ -747,7 +747,7 @@
                                 <button onclick="toggleDropdown('yearDropdown')" class="px-3 py-2 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors ${currentView === 'customYear' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'} touch-manipulation whitespace-nowrap">
                                     Year ▼
                                 </button>
-                                <div id="yearDropdown" class="hidden absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border z-10 sm:min-w-[150px]">
+                                <div id="yearDropdown" class="hidden absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border z-50 sm:min-w-[150px]">
                                     ${getAvailableYears().map(year => `
                                         <button onclick="setCustomYear(${year})" class="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100">
                                             ${year}
@@ -777,7 +777,7 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                                     </svg>
                                 </button>
-                                <div id="categoryFilter" class="hidden absolute top-full right-0 mt-1 bg-white rounded-lg shadow-lg border z-10 w-48">
+                                <div id="categoryFilter" class="hidden absolute top-full right-0 mt-1 bg-white rounded-lg shadow-lg border z-50 w-48">
                                     <button onclick="setCategory('')" class="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100">
                                         All Categories
                                     </button>
