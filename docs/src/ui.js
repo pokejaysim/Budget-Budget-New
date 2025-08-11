@@ -488,6 +488,16 @@ export function showExpenseModal(title) {
                     </button>
                 </div>
 
+                <!-- Partial Refund Note -->
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-sm text-blue-800" id="refundNote" style="display: none;">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span><strong>Note:</strong> For partial refunds, this creates an offsetting line item to adjust your spending totals.</span>
+                    </div>
+                </div>
+
                 <div class="bg-gray-100 rounded-xl p-4 mb-4 text-center" id="amountContainer">
                     <p class="text-4xl font-bold" id="amountDisplay">$0.00</p>
                 </div>
@@ -557,6 +567,7 @@ export function setTransactionType(refund) {
     const modalTitle = document.getElementById('modalTitle');
     const amountContainer = document.getElementById('amountContainer');
     const addBtn = document.getElementById('addExpenseBtn');
+    const refundNote = document.getElementById('refundNote');
     
     if (refund) {
         if (!editingExpenseId) modalTitle.textContent = 'Add Refund/Credit';
@@ -565,6 +576,7 @@ export function setTransactionType(refund) {
         amountContainer.className = 'bg-green-100 rounded-xl p-4 mb-4 text-center';
         addBtn.textContent = editingExpenseId ? 'Update Refund' : 'Add Refund';
         addBtn.className = 'w-full bg-green-500 text-white py-4 rounded-xl font-semibold hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors mt-4';
+        if (refundNote) refundNote.style.display = 'block';
     } else {
         if (!editingExpenseId) modalTitle.textContent = 'Add Expense';
         expenseBtn.className = 'flex-1 py-2 px-4 rounded-lg border-2 border-blue-500 bg-blue-50 text-blue-700 font-medium transition-all';
@@ -572,6 +584,7 @@ export function setTransactionType(refund) {
         amountContainer.className = 'bg-gray-100 rounded-xl p-4 mb-4 text-center';
         addBtn.textContent = editingExpenseId ? 'Update Expense' : 'Add Expense';
         addBtn.className = 'w-full bg-blue-500 text-white py-4 rounded-xl font-semibold hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors mt-4';
+        if (refundNote) refundNote.style.display = 'none';
     }
     updateAmountDisplay();
 }
