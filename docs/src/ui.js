@@ -533,7 +533,7 @@ export function showExpenseModal(title) {
                     </button>
                 </div>
 
-                <button onclick="handleAddExpense()" class="w-full bg-blue-500 text-white py-4 sm:py-5 rounded-xl font-semibold hover:bg-blue-600 active:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-150 mt-4 touch-manipulation select-none min-h-[52px]" style="min-height: 52px;">
+                <button onclick="handleAddExpense()" id="addExpenseBtn" class="w-full bg-blue-500 text-white py-4 sm:py-5 rounded-xl font-semibold hover:bg-blue-600 active:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-150 mt-4 touch-manipulation select-none min-h-[52px]" style="min-height: 52px;">
                     ${editingExpenseId ? 'Update Expense' : 'Add Expense'}
                 </button>
             </div>
