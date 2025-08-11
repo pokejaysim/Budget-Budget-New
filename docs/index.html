@@ -1951,6 +1951,7 @@
         window.setBillingCycle = setBillingCycle;
         window.setSearch = setSearch;
         window.setCategory = setCategory;
+        window.toggleDropdown = toggleDropdown;
         window.editExpense = editExpense;
         window.showAddExpense = showAddExpense;
         window.showExpenseModal = showExpenseModal;
@@ -2088,9 +2089,6 @@
                 dropdown.classList.add('hidden');
             }
         }
-        
-        // Make toggleDropdown globally available
-        window.toggleDropdown = toggleDropdown;
         
         // Close dropdowns when clicking outside
         document.addEventListener('click', (e) => {
