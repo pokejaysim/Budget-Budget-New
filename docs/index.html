@@ -285,6 +285,7 @@
                     const data = doc.data();
                     monthlyBudget = data.monthlyBudget || 2000;
                     billingCycleDay = data.billingCycleDay || 11;
+                    console.log('Loaded from Firebase:', { monthlyBudget, billingCycleDay, rawData: data });
                     
                     // Auto-calculate current cycle based on cycle day
                     const currentCycle = calculateCurrentCycle(billingCycleDay);
@@ -443,7 +444,9 @@
                 if (selectedBillingCycle) {
                     // Filter by specific billing cycle
                     console.log('Filtering by billing cycle, selectedBillingCycle:', selectedBillingCycle);
-                    const cycleStartDate = new Date(selectedBillingCycle);
+                    // Fix timezone issue by parsing date at noon to avoid day shifts
+                    const cycleStartDate = new Date(selectedBillingCycle + 'T12:00:00');
+                    console.log('Parsed cycleStartDate:', cycleStartDate);
                     const cycle = calculateCurrentCycle(billingCycleDay, cycleStartDate);
                     console.log('Calculated cycle:', cycle);
                     filtered = filtered.filter(expense => {
