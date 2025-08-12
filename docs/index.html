@@ -445,9 +445,19 @@
                     // Filter by specific billing cycle
                     console.log('Filtering by billing cycle, selectedBillingCycle:', selectedBillingCycle);
                     // Fix timezone issue by parsing date at noon to avoid day shifts
-                    const cycleStartDate = new Date(selectedBillingCycle + 'T12:00:00');
-                    console.log('Parsed cycleStartDate:', cycleStartDate);
-                    const cycle = calculateCurrentCycle(billingCycleDay, cycleStartDate);
+                    const selectedDate = new Date(selectedBillingCycle + 'T12:00:00');
+                    console.log('Parsed selectedDate:', selectedDate);
+                    
+                    // If the selected date is a cycle closing day (11th), find the cycle that starts the next day
+                    let cycleReferenceDate = selectedDate;
+                    if (selectedDate.getDate() === billingCycleDay) {
+                        // This is a cycle closing day, so the cycle we want starts the next day
+                        cycleReferenceDate = new Date(selectedDate);
+                        cycleReferenceDate.setDate(selectedDate.getDate() + 1); // Move to start of next cycle
+                        console.log('Adjusted to cycle start date:', cycleReferenceDate);
+                    }
+                    
+                    const cycle = calculateCurrentCycle(billingCycleDay, cycleReferenceDate);
                     console.log('Calculated cycle:', cycle);
                     filtered = filtered.filter(expense => {
                         const expenseDate = new Date(expense.date);
