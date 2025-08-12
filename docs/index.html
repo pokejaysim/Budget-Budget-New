@@ -425,7 +425,12 @@
                 const currentCycle = calculateCurrentCycle(billingCycleDay);
                 filtered = filtered.filter(expense => {
                     const expenseDate = new Date(expense.date);
-                    return expenseDate >= currentCycle.start && expenseDate <= currentCycle.end;
+                    // Set to start of day for proper comparison
+                    const expenseDateOnly = new Date(expenseDate.getFullYear(), expenseDate.getMonth(), expenseDate.getDate());
+                    const cycleStartOnly = new Date(currentCycle.start.getFullYear(), currentCycle.start.getMonth(), currentCycle.start.getDate());
+                    const cycleEndOnly = new Date(currentCycle.end.getFullYear(), currentCycle.end.getMonth(), currentCycle.end.getDate());
+                    
+                    return expenseDateOnly >= cycleStartOnly && expenseDateOnly <= cycleEndOnly;
                 });
             } else if (currentView === 'custom' && selectedMonth) {
                 // Filter by specific month
@@ -461,8 +466,13 @@
                     console.log('Calculated cycle:', cycle);
                     filtered = filtered.filter(expense => {
                         const expenseDate = new Date(expense.date);
-                        const included = expenseDate >= cycle.start && expenseDate <= cycle.end;
-                        console.log(`Expense ${expense.date}: ${included ? 'included' : 'excluded'}`);
+                        // Set to start of day for proper comparison
+                        const expenseDateOnly = new Date(expenseDate.getFullYear(), expenseDate.getMonth(), expenseDate.getDate());
+                        const cycleStartOnly = new Date(cycle.start.getFullYear(), cycle.start.getMonth(), cycle.start.getDate());
+                        const cycleEndOnly = new Date(cycle.end.getFullYear(), cycle.end.getMonth(), cycle.end.getDate());
+                        
+                        const included = expenseDateOnly >= cycleStartOnly && expenseDateOnly <= cycleEndOnly;
+                        console.log(`Expense ${expense.date} (${expenseDateOnly.toDateString()}): ${included ? 'included' : 'excluded'} [Cycle: ${cycleStartOnly.toDateString()} - ${cycleEndOnly.toDateString()}]`);
                         return included;
                     });
                 } else {
@@ -471,7 +481,12 @@
                     const currentCycle = calculateCurrentCycle(billingCycleDay);
                     filtered = filtered.filter(expense => {
                         const expenseDate = new Date(expense.date);
-                        return expenseDate >= currentCycle.start && expenseDate <= currentCycle.end;
+                        // Set to start of day for proper comparison
+                        const expenseDateOnly = new Date(expenseDate.getFullYear(), expenseDate.getMonth(), expenseDate.getDate());
+                        const cycleStartOnly = new Date(currentCycle.start.getFullYear(), currentCycle.start.getMonth(), currentCycle.start.getDate());
+                        const cycleEndOnly = new Date(currentCycle.end.getFullYear(), currentCycle.end.getMonth(), currentCycle.end.getDate());
+                        
+                        return expenseDateOnly >= cycleStartOnly && expenseDateOnly <= cycleEndOnly;
                     });
                 }
             }
