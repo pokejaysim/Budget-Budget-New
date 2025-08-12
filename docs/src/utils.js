@@ -1,5 +1,5 @@
 
-import { allExpenses, billingCycleStart, monthlyBudget, currentView, searchQuery, categories, selectedCategory, selectedMonth, selectedYear, setExpenses, expenses, setCharts, charts } from './state.js';
+import { allExpenses, billingCycleStart, monthlyBudget, currentView, searchQuery, categories, selectedCategory, selectedMonth, selectedYear, setExpenses, expenses, setCharts, charts, billingCycleDay } from './state.js';
 import { showBudgetNotification } from './ui.js';
 
 export function calculateCurrentCycle(cycleDay) {
@@ -43,6 +43,44 @@ export function calculateCurrentCycle(cycleDay) {
     };
 }
 
+export function calculatePreviousCycle(cycleDay) {
+    const currentCycle = calculateCurrentCycle(cycleDay);
+    
+    // Helper function to get the actual day in a month (handles months with < 31 days)
+    function getValidDayInMonth(year, month, day) {
+        const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+        return Math.min(day, lastDayOfMonth);
+    }
+    
+    // Previous cycle ends when current cycle starts (minus 1 day)
+    const currentStart = new Date(currentCycle.start);
+    const previousEnd = new Date(currentStart.getTime() - 24 * 60 * 60 * 1000); // Subtract 1 day
+    
+    // Calculate previous cycle start by going back one cycle period
+    const cycleStartDay = cycleDay + 1;
+    const endMonth = previousEnd.getMonth();
+    const endYear = previousEnd.getFullYear();
+    
+    let startMonth, startYear;
+    if (endMonth === 0) {
+        startMonth = 11; // December of previous year
+        startYear = endYear - 1;
+    } else {
+        startMonth = endMonth - 1;
+        startYear = endYear;
+    }
+    
+    const validStartDay = getValidDayInMonth(startYear, startMonth, cycleStartDay);
+    const previousStart = new Date(startYear, startMonth, validStartDay);
+    
+    return {
+        start: previousStart,
+        end: previousEnd,
+        startStr: previousStart.toISOString().split('T')[0],
+        endStr: previousEnd.toISOString().split('T')[0]
+    };
+}
+
 export function filterExpenses(expenseList) {
     let filtered = [...expenseList];
 
@@ -51,6 +89,14 @@ export function filterExpenses(expenseList) {
     if (currentView === 'current') {
         const startDate = new Date(billingCycleStart);
         filtered = filtered.filter(e => new Date(e.date) >= startDate);
+    } else if (currentView === 'lastCycle') {
+        const previousCycle = calculatePreviousCycle(billingCycleDay);
+        const startDate = new Date(previousCycle.start);
+        const endDate = new Date(previousCycle.end);
+        filtered = filtered.filter(e => {
+            const expenseDate = new Date(e.date);
+            return expenseDate >= startDate && expenseDate <= endDate;
+        });
     } else if (currentView === 'monthly') {
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         filtered = filtered.filter(e => new Date(e.date) >= startOfMonth);

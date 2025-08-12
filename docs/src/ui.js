@@ -1,7 +1,7 @@
 import { auth, db } from './firebase-init.js';
 import { collection, addDoc, doc, updateDoc, serverTimestamp, deleteDoc, setDoc } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js';
 import { currentUser, allExpenses, expenses, monthlyBudget, billingCycleDay, billingCycleStart, searchQuery, selectedCategory, selectedMonth, selectedYear, categories, defaultCategories, editingExpenseId, expenseAmount, expenseCategory, expenseDescription, expenseDate, isRefund, setCurrentUser, setAllExpenses, setExpenses, setMonthlyBudget, setBillingCycleDay, setBillingCycleStart, setUnsubscribeExpenses, setUnsubscribeSettings, setCurrentView, setSearchQuery, setSelectedCategory, setSelectedMonth, setSelectedYear, setCharts, setCategories, setUnsubscribeCategories, setEditingExpenseId, setExpenseAmount, setExpenseCategory, setExpenseDescription, setExpenseDate, setIsRefund } from './state.js';
-import { calculateCurrentCycle, filterExpenses, getAvailableMonths, getAvailableYears, checkBudgetAlert } from './utils.js';
+import { calculateCurrentCycle, calculatePreviousCycle, filterExpenses, getAvailableMonths, getAvailableYears, checkBudgetAlert } from './utils.js';
 import { getMonthlyData, getCategoryTrends, renderCharts } from './charts.js';
 
 export function showBudgetNotification(type, message) {
@@ -141,6 +141,9 @@ export function render() {
                     <button onclick="setView('current')" class="px-3 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base rounded-lg ${currentView === 'current' ? 'bg-blue-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}">
                         Current Cycle
                     </button>
+                    <button onclick="setView('lastCycle')" class="px-3 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base rounded-lg ${currentView === 'lastCycle' ? 'bg-blue-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}">
+                        Last Cycle
+                    </button>
                     <button onclick="setView('monthly')" class="px-3 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base rounded-lg ${currentView === 'monthly' ? 'bg-blue-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}">
                         This Month
                     </button>
@@ -203,6 +206,7 @@ export function render() {
                         <div>
                             <p class="text-xs sm:text-sm opacity-90">
                                 ${currentView === 'current' ? 'Current Cycle' : 
+                                  currentView === 'lastCycle' ? 'Last Cycle' :
                                   currentView === 'monthly' ? 'This Month' : 
                                   currentView === 'yearly' ? 'This Year' :
                                   currentView === 'custom' && selectedMonth ? 
@@ -224,26 +228,32 @@ export function render() {
                                 <p class="text-xs opacity-75">Cycle Period</p>
                                 <p class="font-semibold text-xs sm:text-sm">${new Date(billingCycleStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(calculateCurrentCycle().end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
                             </div>
+                    ` : currentView === 'lastCycle' ? `
+                        <div class="grid grid-cols-3 gap-2 sm:gap-4 mt-4">
                             <div>
-                                <p class="text-xs opacity-75">Days Left</p>
-                                <p class="font-semibold text-sm sm:text-base">${Math.max(0, Math.ceil((new Date(calculateCurrentCycle().end) - new Date()) / (1000 * 60 * 60 * 24)))}</p>
+                                <p class="text-xs opacity-75">Cycle Period</p>
+                                <p class="font-semibold text-xs sm:text-sm">${new Date(calculatePreviousCycle(billingCycleDay).start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(calculatePreviousCycle(billingCycleDay).end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs opacity-75">Total Days</p>
+                                <p class="font-semibold text-sm sm:text-base">${Math.ceil((new Date(calculatePreviousCycle(billingCycleDay).end) - new Date(calculatePreviousCycle(billingCycleDay).start)) / (1000 * 60 * 60 * 24))}</p>
                             </div>
                             <div>
                                 <p class="text-xs opacity-75">Daily Avg</p>
-                                <p class="font-semibold text-sm sm:text-base">$${dailyAverage.toFixed(2)}</p>
+                                <p class="font-semibold text-sm sm:text-base">$${(totalSpent / Math.max(1, Math.ceil((new Date(calculatePreviousCycle(billingCycleDay).end) - new Date(calculatePreviousCycle(billingCycleDay).start)) / (1000 * 60 * 60 * 24)))).toFixed(2)}</p>
                             </div>
                         </div>
                         
                         <div class="mt-4">
                             <div class="flex justify-between text-sm mb-1">
                                 <span>Budget Used</span>
-                                <span>${budgetPercentage.toFixed(0)}%</span>
+                                <span>${((totalSpent / monthlyBudget) * 100).toFixed(0)}%</span>
                             </div>
                             <div class="w-full bg-white/30 rounded-full h-2">
                                 <div class="h-2 rounded-full transition-all ${
-                                    budgetPercentage > 90 ? 'bg-red-400' : 
-                                    budgetPercentage > 70 ? 'bg-yellow-400' : 'bg-green-400'
-                                }" style="width: ${Math.min(budgetPercentage, 100)}%"></div>
+                                    (totalSpent / monthlyBudget) * 100 > 90 ? 'bg-red-400' : 
+                                    (totalSpent / monthlyBudget) * 100 > 70 ? 'bg-yellow-400' : 'bg-green-400'
+                                }" style="width: ${Math.min((totalSpent / monthlyBudget) * 100, 100)}%"></div>
                             </div>
                             <p class="text-xs mt-1 opacity-75">
                                 $${totalSpent.toFixed(2)} of $${monthlyBudget.toFixed(2)} used
