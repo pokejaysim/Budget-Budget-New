@@ -216,6 +216,14 @@
             const currentMonth = today.getMonth();
             const currentYear = today.getFullYear();
             
+            console.log('calculateCurrentCycle called with:', {
+                cycleDay,
+                referenceDate: referenceDate ? referenceDate.toString() : 'null',
+                currentDay,
+                currentMonth,
+                currentYear
+            });
+            
             let cycleStart, cycleEnd;
             
             // Helper function to get the actual day in a month (handles months with < 31 days)
