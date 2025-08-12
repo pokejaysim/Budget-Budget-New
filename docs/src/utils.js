@@ -44,34 +44,34 @@ export function calculateCurrentCycle(cycleDay) {
 }
 
 export function calculatePreviousCycle(cycleDay) {
-    const currentCycle = calculateCurrentCycle(cycleDay);
-    
     // Helper function to get the actual day in a month (handles months with < 31 days)
     function getValidDayInMonth(year, month, day) {
         const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
         return Math.min(day, lastDayOfMonth);
     }
     
-    // Previous cycle ends when current cycle starts (minus 1 day)
+    const currentCycle = calculateCurrentCycle(cycleDay);
+    
+    // Previous cycle ends one day before current cycle starts
     const currentStart = new Date(currentCycle.start);
-    const previousEnd = new Date(currentStart.getTime() - 24 * 60 * 60 * 1000); // Subtract 1 day
+    const previousEnd = new Date(currentStart.getTime() - 24 * 60 * 60 * 1000);
     
-    // Calculate previous cycle start by going back one cycle period
-    const cycleStartDay = cycleDay + 1;
-    const endMonth = previousEnd.getMonth();
-    const endYear = previousEnd.getFullYear();
+    // Previous cycle starts one month before current cycle starts
+    const cycleStartDay = cycleDay + 1; // Cycle starts the day after closing
+    const currentStartMonth = currentStart.getMonth();
+    const currentStartYear = currentStart.getFullYear();
     
-    let startMonth, startYear;
-    if (endMonth === 0) {
-        startMonth = 11; // December of previous year
-        startYear = endYear - 1;
+    let previousStartMonth, previousStartYear;
+    if (currentStartMonth === 0) {
+        previousStartMonth = 11; // December of previous year
+        previousStartYear = currentStartYear - 1;
     } else {
-        startMonth = endMonth - 1;
-        startYear = endYear;
+        previousStartMonth = currentStartMonth - 1;
+        previousStartYear = currentStartYear;
     }
     
-    const validStartDay = getValidDayInMonth(startYear, startMonth, cycleStartDay);
-    const previousStart = new Date(startYear, startMonth, validStartDay);
+    const validStartDay = getValidDayInMonth(previousStartYear, previousStartMonth, cycleStartDay);
+    const previousStart = new Date(previousStartYear, previousStartMonth, validStartDay);
     
     return {
         start: previousStart,
