@@ -227,19 +227,23 @@
             // Cycle starts on the day after closing (e.g., 12th if closing is 11th)
             const cycleStartDay = cycleDay + 1;
             
+            // Check if the reference date falls after the cycle start day of the month
             if (currentDay >= cycleStartDay) {
-                // We're in a cycle that started this month
+                // Current cycle: starts this month, ends next month
                 const validStartDay = getValidDayInMonth(currentYear, currentMonth, cycleStartDay);
                 const validEndDay = getValidDayInMonth(currentYear, currentMonth + 1, cycleDay);
                 
                 cycleStart = new Date(currentYear, currentMonth, validStartDay);
                 cycleEnd = new Date(currentYear, currentMonth + 1, validEndDay);
             } else {
-                // We're in a cycle that started last month
-                const validStartDay = getValidDayInMonth(currentYear, currentMonth - 1, cycleStartDay);
+                // Current cycle: started last month, ends this month
+                const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+                const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+                
+                const validStartDay = getValidDayInMonth(prevYear, prevMonth, cycleStartDay);
                 const validEndDay = getValidDayInMonth(currentYear, currentMonth, cycleDay);
                 
-                cycleStart = new Date(currentYear, currentMonth - 1, validStartDay);
+                cycleStart = new Date(prevYear, prevMonth, validStartDay);
                 cycleEnd = new Date(currentYear, currentMonth, validEndDay);
             }
             
