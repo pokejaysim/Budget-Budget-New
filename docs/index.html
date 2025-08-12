@@ -359,6 +359,7 @@
         }
 
         function getAvailableBillingCycles() {
+            console.log('getAvailableBillingCycles called, allExpenses.length:', allExpenses.length);
             if (allExpenses.length === 0) return [];
             
             const cycles = new Map();
@@ -397,6 +398,13 @@
         }
 
         function filterExpenses(expenseList) {
+            console.log('filterExpenses called with:', {
+                currentView,
+                selectedBillingCycle,
+                selectedMonth,
+                selectedYear,
+                expenseCount: expenseList.length
+            });
             let filtered = [...expenseList];
             
             // Filter by view (date range)
@@ -421,11 +429,15 @@
                 });
             } else if (currentView === 'billingCycle' && selectedBillingCycle) {
                 // Filter by specific billing cycle
+                console.log('Filtering by billing cycle, selectedBillingCycle:', selectedBillingCycle);
                 const cycleStartDate = new Date(selectedBillingCycle);
                 const cycle = calculateCurrentCycle(billingCycleDay, cycleStartDate);
+                console.log('Calculated cycle:', cycle);
                 filtered = filtered.filter(expense => {
                     const expenseDate = new Date(expense.date);
-                    return expenseDate >= cycle.start && expenseDate <= cycle.end;
+                    const included = expenseDate >= cycle.start && expenseDate <= cycle.end;
+                    console.log(`Expense ${expense.date}: ${included ? 'included' : 'excluded'}`);
+                    return included;
                 });
             }
             
