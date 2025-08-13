@@ -4,11 +4,57 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Budget Buddy</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#3b82f6">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Budget Buddy">
+    <link rel="apple-touch-icon" href="/icon-192.png">
+    
     <!-- Using Tailwind CDN for simplicity in this single-file app -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Chart.js for data visualization -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8fafc;
+            --text-primary: #1f2937;
+            --text-secondary: #6b7280;
+            --border-color: #e5e7eb;
+            --card-bg: #ffffff;
+            --button-bg: #3b82f6;
+            --button-text: #ffffff;
+            --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #111827;
+            --bg-secondary: #1f2937;
+            --text-primary: #f9fafb;
+            --text-secondary: #d1d5db;
+            --border-color: #374151;
+            --card-bg: #1f2937;
+            --button-bg: #3b82f6;
+            --button-text: #ffffff;
+            --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .bg-gray-50 { background-color: var(--bg-secondary) !important; }
+        .bg-white { background-color: var(--card-bg) !important; }
+        .text-gray-900 { color: var(--text-primary) !important; }
+        .text-gray-700 { color: var(--text-secondary) !important; }
+        .text-gray-600 { color: var(--text-secondary) !important; }
+        .border-gray-200 { border-color: var(--border-color) !important; }
+        .border { border-color: var(--border-color) !important; }
+
         .animate-slide-up {
             animation: slideUp 0.3s ease-out;
         }
@@ -149,6 +195,18 @@
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js';
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js';
         import { getFirestore, collection, addDoc, query, where, orderBy, onSnapshot, deleteDoc, doc, serverTimestamp, setDoc, updateDoc, Timestamp } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js';
+        
+        // Import offline utilities
+        import { saveToLocalStorage, loadFromLocalStorage, hasOfflineData, addOfflineExpense, syncOfflineExpenses, scheduleAutoSave } from './src/offline.js';
+        
+        // Import templates utilities
+        import { getAllTemplates, addTemplate, createTemplateFromExpense, defaultTemplates } from './src/templates.js';
+        
+        // Import history utilities
+        import { 
+            pushAction, canUndo, canRedo, executeUndo, executeRedo, loadHistory,
+            createAddExpenseAction, createEditExpenseAction, createDeleteExpenseAction
+        } from './src/history.js';
 
         // Firebase configuration - embedded directly
         const firebaseConfig = {
@@ -199,8 +257,25 @@
         onAuthStateChanged(auth, (user) => {
             currentUser = user;
             if (user) {
+                // Load offline data if available
+                if (hasOfflineData()) {
+                    loadFromLocalStorage();
+                    console.log('Loaded offline data');
+                }
+                
                 subscribeToUserData();
                 showApp();
+                
+                // Sync offline expenses when coming online
+                if (navigator.onLine) {
+                    syncOfflineExpenses(async (expenseData) => {
+                        await addDoc(collection(db, 'expenses'), expenseData);
+                    }).then(synced => {
+                        if (synced) {
+                            showBudgetNotification('success', 'Offline expenses synced!');
+                        }
+                    });
+                }
             } else {
                 if (unsubscribeExpenses) unsubscribeExpenses();
                 if (unsubscribeSettings) unsubscribeSettings();
@@ -661,6 +736,40 @@
             render();
         }
 
+        function calculateSpendingVelocity() {
+            if (currentView !== 'current' || expenses.length === 0) {
+                return { dailyAverage: 0, projectedTotal: 0, daysTracked: 0 };
+            }
+
+            const currentCycle = calculateCurrentCycle(billingCycleDay);
+            const today = new Date();
+            const startDate = new Date(currentCycle.start);
+            
+            // Calculate days elapsed in current cycle
+            const millisecondsPerDay = 24 * 60 * 60 * 1000;
+            const daysElapsed = Math.floor((today - startDate) / millisecondsPerDay) + 1; // +1 to include today
+            
+            // Calculate total spent (excluding refunds for velocity calculation)
+            const totalSpentForVelocity = expenses.reduce((sum, expense) => {
+                return sum + (expense.isRefund ? 0 : expense.amount);
+            }, 0);
+            
+            const dailyAverage = daysElapsed > 0 ? totalSpentForVelocity / daysElapsed : 0;
+            
+            // Calculate total days in cycle
+            const endDate = new Date(currentCycle.end);
+            const totalDaysInCycle = Math.floor((endDate - startDate) / millisecondsPerDay) + 1;
+            
+            const projectedTotal = dailyAverage * totalDaysInCycle;
+            
+            return {
+                dailyAverage,
+                projectedTotal,
+                daysTracked: daysElapsed,
+                totalDaysInCycle
+            };
+        }
+
         function render() {
             // Calculate totals for current view
             const totalSpent = expenses.reduce((sum, expense) => {
@@ -668,6 +777,9 @@
             }, 0);
             const budgetRemaining = monthlyBudget - totalSpent;
             const budgetPercentage = (totalSpent / monthlyBudget) * 100;
+            
+            // Calculate spending velocity
+            const velocity = calculateSpendingVelocity();
 
             // Get unique categories from expenses
             const expenseCategories = [...new Set(expenses.map(e => e.category))];
@@ -683,6 +795,23 @@
                                     <h1 class="text-lg sm:text-xl font-bold text-gray-900">Budget Buddy</h1>
                                 </div>
                                 <div class="flex items-center gap-1 sm:gap-4">
+                                    <div class="flex gap-1">
+                                        <button id="undoBtn" onclick="performUndo()" disabled class="p-2 hover:bg-gray-100 rounded-lg transition-colors touch-manipulation touch-target flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed" title="Undo">
+                                            <svg class="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                                            </svg>
+                                        </button>
+                                        <button id="redoBtn" onclick="performRedo()" disabled class="p-2 hover:bg-gray-100 rounded-lg transition-colors touch-manipulation touch-target flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed" title="Redo">
+                                            <svg class="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                    <button onclick="toggleDarkMode()" class="p-2 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors touch-manipulation touch-target flex items-center justify-center" title="Toggle dark mode">
+                                        <svg id="darkModeIcon" class="w-5 h-5 sm:w-6 sm:h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                                        </svg>
+                                    </button>
                                     <button onclick="showCategoryManager()" class="p-2 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors touch-manipulation touch-target flex items-center justify-center">
                                         <svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
@@ -749,8 +878,15 @@
                                         </p>
                                     </div>
                                     <div>
-                                        <p class="text-xs sm:text-sm text-gray-600">Days Left</p>
-                                        <p class="text-lg sm:text-2xl font-bold text-gray-900">${getRemainingDaysInCycle()}</p>
+                                        <p class="text-xs sm:text-sm text-gray-600">Daily Average</p>
+                                        <p class="text-lg sm:text-2xl font-bold text-gray-900">$${velocity.dailyAverage.toFixed(2)}</p>
+                                        <p class="text-xs text-gray-500">
+                                            Projected: $${velocity.projectedTotal.toFixed(0)}
+                                            ${velocity.projectedTotal > monthlyBudget ? 
+                                                `<span class="text-red-600">(+$${(velocity.projectedTotal - monthlyBudget).toFixed(0)})</span>` : 
+                                                `<span class="text-green-600">(-$${(monthlyBudget - velocity.projectedTotal).toFixed(0)})</span>`
+                                            }
+                                        </p>
                                     </div>
                                 ` : `
                                     <div>
@@ -759,6 +895,25 @@
                                     </div>
                                 `}
                             </div>
+
+                            ${currentView === 'current' ? `
+                                <!-- Additional metrics row for current view -->
+                                <div class="grid grid-cols-2 gap-3 sm:gap-4 mb-4">
+                                    <div>
+                                        <p class="text-xs sm:text-sm text-gray-600">Days Left</p>
+                                        <p class="text-lg sm:text-2xl font-bold text-gray-900">${getRemainingDaysInCycle()}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs sm:text-sm text-gray-600">Pace</p>
+                                        <p class="text-lg sm:text-2xl font-bold ${velocity.projectedTotal > monthlyBudget ? 'text-red-600' : 'text-green-600'}">
+                                            ${velocity.projectedTotal > monthlyBudget ? 'Over' : 'Under'}
+                                        </p>
+                                        <p class="text-xs text-gray-500">
+                                            ${((velocity.projectedTotal / monthlyBudget) * 100).toFixed(0)}% of budget
+                                        </p>
+                                    </div>
+                                </div>
+                            ` : ''}
 
                             ${currentView === 'current' ? `
                                 <div class="relative w-full bg-gray-200 rounded-full h-2 sm:h-3">
@@ -863,6 +1018,14 @@
                                     <canvas id="categoryChart"></canvas>
                                 </div>
                             </div>
+
+                            <!-- Current Period Category Pie Chart -->
+                            <div class="bg-white rounded-xl shadow-sm border p-4 sm:p-6">
+                                <h3 class="text-base sm:text-lg font-semibold text-gray-900 mb-4">Current Period Breakdown</h3>
+                                <div class="chart-container">
+                                    <canvas id="pieChart"></canvas>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Expenses List -->
@@ -940,7 +1103,10 @@
             `;
 
             // Initialize charts
-            setTimeout(() => renderCharts(), 100);
+            setTimeout(() => {
+                renderCharts();
+                updateUndoRedoButtons();
+            }, 100);
         }
 
         function renderCharts() {
@@ -1126,6 +1292,22 @@
                             </div>
                         </div>
 
+                        <!-- Expense Templates -->
+                        <div class="mb-3" id="templatesSection">
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="block text-sm font-medium text-gray-700">Quick Templates</label>
+                                <button onclick="toggleTemplates()" class="text-xs text-blue-600 hover:text-blue-800">
+                                    <span id="templatesToggle">Show More</span>
+                                </button>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 mb-2" id="quickTemplates">
+                                <!-- Quick templates will be loaded here -->
+                            </div>
+                            <div class="hidden" id="allTemplates">
+                                <!-- All templates will be loaded here -->
+                            </div>
+                        </div>
+
                         <!-- Category Selection -->
                         <div class="mb-3">
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Category</label>
@@ -1198,7 +1380,168 @@
             `;
             
             document.body.appendChild(modal);
+            loadTemplates(); // Load templates after modal is created
         }
+
+        // Template management functions
+        let allTemplatesData = [];
+        let templatesExpanded = false;
+
+        async function loadTemplates() {
+            try {
+                allTemplatesData = await getAllTemplates();
+                renderQuickTemplates();
+            } catch (error) {
+                console.error('Failed to load templates:', error);
+                // Use default templates as fallback
+                allTemplatesData = defaultTemplates;
+                renderQuickTemplates();
+            }
+        }
+
+        function renderQuickTemplates() {
+            const quickTemplatesContainer = document.getElementById('quickTemplates');
+            if (!quickTemplatesContainer) return;
+
+            // Show first 4 templates as quick options
+            const quickTemplates = allTemplatesData.slice(0, 4);
+            
+            quickTemplatesContainer.innerHTML = quickTemplates.map(template => `
+                <button onclick="selectTemplate('${template.id}')" 
+                        class="p-2 text-left border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                    <div class="text-sm font-medium text-gray-900 truncate">${template.name}</div>
+                    <div class="text-xs text-gray-500">$${template.amount.toFixed(2)}</div>
+                </button>
+            `).join('');
+        }
+
+        function renderAllTemplates() {
+            const allTemplatesContainer = document.getElementById('allTemplates');
+            if (!allTemplatesContainer) return;
+
+            allTemplatesContainer.innerHTML = `
+                <div class="space-y-2 max-h-40 overflow-y-auto">
+                    ${allTemplatesData.map(template => `
+                        <div class="flex items-center justify-between p-2 border border-gray-200 rounded-lg">
+                            <button onclick="selectTemplate('${template.id}')" class="flex-1 text-left">
+                                <div class="text-sm font-medium text-gray-900">${template.name}</div>
+                                <div class="text-xs text-gray-500">$${template.amount.toFixed(2)} • ${template.description}</div>
+                            </button>
+                            ${template.id.startsWith('user-') ? `
+                                <button onclick="deleteUserTemplate('${template.id}')" 
+                                        class="ml-2 p-1 text-red-600 hover:bg-red-100 rounded">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </button>
+                            ` : ''}
+                        </div>
+                    `).join('')}
+                    <div class="pt-2 border-t">
+                        <button onclick="saveCurrentAsTemplate()" 
+                                class="w-full p-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg border border-blue-200">
+                            💾 Save Current as Template
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        window.toggleTemplates = () => {
+            const allTemplatesContainer = document.getElementById('allTemplates');
+            const toggleText = document.getElementById('templatesToggle');
+            
+            if (!templatesExpanded) {
+                renderAllTemplates();
+                allTemplatesContainer.classList.remove('hidden');
+                toggleText.textContent = 'Show Less';
+                templatesExpanded = true;
+            } else {
+                allTemplatesContainer.classList.add('hidden');
+                toggleText.textContent = 'Show More';
+                templatesExpanded = false;
+            }
+        };
+
+        window.selectTemplate = (templateId) => {
+            const template = allTemplatesData.find(t => t.id === templateId);
+            if (template) {
+                expenseAmount = template.amount.toString();
+                expenseCategory = template.category;
+                expenseDescription = template.description;
+                
+                // Update the UI
+                updateAmountDisplay();
+                
+                // Update category selection visual
+                document.querySelectorAll('[onclick^="selectCategory"]').forEach(btn => {
+                    btn.className = btn.className.replace('border-blue-500 bg-blue-50', 'border-gray-200 hover:border-gray-300');
+                });
+                const selectedCategoryBtn = document.querySelector(`[onclick="selectCategory('${template.category}')"]`);
+                if (selectedCategoryBtn) {
+                    selectedCategoryBtn.className = selectedCategoryBtn.className.replace('border-gray-200 hover:border-gray-300', 'border-blue-500 bg-blue-50');
+                }
+                
+                // Update description input
+                const descInput = document.getElementById('descriptionInput');
+                if (descInput) {
+                    descInput.value = template.description;
+                }
+
+                showBudgetNotification('success', `Applied template: ${template.name}`);
+            }
+        };
+
+        window.saveCurrentAsTemplate = async () => {
+            if (!expenseAmount || !expenseCategory) {
+                showBudgetNotification('warning', 'Please fill in amount and category first');
+                return;
+            }
+
+            const templateName = prompt('Enter a name for this template:');
+            if (!templateName) return;
+
+            const newTemplate = createTemplateFromExpense(
+                parseFloat(expenseAmount),
+                expenseCategory,
+                expenseDescription,
+                templateName
+            );
+
+            const savedTemplate = await addTemplate(newTemplate);
+            if (savedTemplate) {
+                allTemplatesData.push(savedTemplate);
+                showBudgetNotification('success', 'Template saved successfully!');
+                if (templatesExpanded) {
+                    renderAllTemplates();
+                }
+                renderQuickTemplates();
+            } else {
+                showBudgetNotification('danger', 'Failed to save template');
+            }
+        };
+
+        window.deleteUserTemplate = async (templateId) => {
+            if (!confirm('Delete this template?')) return;
+            
+            try {
+                const { deleteTemplate } = await import('./src/templates.js');
+                const success = await deleteTemplate(templateId);
+                if (success) {
+                    allTemplatesData = allTemplatesData.filter(t => t.id !== templateId);
+                    renderQuickTemplates();
+                    if (templatesExpanded) {
+                        renderAllTemplates();
+                    }
+                    showBudgetNotification('success', 'Template deleted');
+                } else {
+                    showBudgetNotification('danger', 'Failed to delete template');
+                }
+            } catch (error) {
+                console.error('Error deleting template:', error);
+                showBudgetNotification('danger', 'Failed to delete template');
+            }
+        };
 
         function setTransactionType(refund) {
             isRefund = refund;
@@ -1350,19 +1693,53 @@
                 };
 
                 if (isEditing) {
+                    // Find the old expense for history tracking
+                    const oldExpense = allExpenses.find(e => e.id === editingExpenseId);
                     await updateDoc(doc(db, 'expenses', editingExpenseId), expenseData);
+                    
+                    // Track edit action
+                    if (oldExpense) {
+                        pushAction(createEditExpenseAction(oldExpense, { ...expenseData, id: editingExpenseId }));
+                    }
+                    
                     showBudgetNotification('success', 'Expense updated successfully!');
                 } else {
-                    await addDoc(collection(db, 'expenses'), expenseData);
+                    const docRef = await addDoc(collection(db, 'expenses'), expenseData);
+                    
+                    // Track add action
+                    pushAction(createAddExpenseAction({ ...expenseData, id: docRef.id }));
+                    
                     showBudgetNotification('success', isRefund ? 'Refund added successfully!' : 'Expense added successfully!');
                 }
                 
                 closeModal();
+                scheduleAutoSave(); // Save to localStorage after successful Firebase operation
             } catch (error) {
                 console.error('Error saving expense:', error);
-                showBudgetNotification('danger', 'Failed to save. Please try again.');
-                btn.textContent = isEditing ? 'Update' : (isRefund ? 'Add Refund' : 'Add Expense');
-                btn.disabled = false;
+                
+                // If offline or network error, save to local storage
+                if (!navigator.onLine || error.code === 'unavailable') {
+                    if (addOfflineExpense(expenseData)) {
+                        showBudgetNotification('warning', 'Added offline. Will sync when online.');
+                        closeModal();
+                        
+                        // Add to local state immediately for UI feedback
+                        allExpenses.unshift({
+                            ...expenseData,
+                            id: `offline-${Date.now()}`,
+                            isOffline: true
+                        });
+                        filterAndRender();
+                    } else {
+                        showBudgetNotification('danger', 'Failed to save expense offline.');
+                        btn.textContent = isEditing ? 'Update' : (isRefund ? 'Add Refund' : 'Add Expense');
+                        btn.disabled = false;
+                    }
+                } else {
+                    showBudgetNotification('danger', 'Failed to save. Please try again.');
+                    btn.textContent = isEditing ? 'Update' : (isRefund ? 'Add Refund' : 'Add Expense');
+                    btn.disabled = false;
+                }
             }
         }
 
@@ -1487,7 +1864,16 @@
             if (!confirm('Are you sure you want to delete this expense?')) return;
             
             try {
+                // Find the expense for history tracking
+                const expenseToDelete = allExpenses.find(e => e.id === expenseId);
+                
                 await deleteDoc(doc(db, 'expenses', expenseId));
+                
+                // Track delete action
+                if (expenseToDelete) {
+                    pushAction(createDeleteExpenseAction(expenseToDelete));
+                }
+                
                 showBudgetNotification('success', 'Expense deleted successfully!');
             } catch (error) {
                 console.error('Error deleting expense:', error);
@@ -2209,6 +2595,180 @@
                 });
             }
         });
+
+        // Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', async () => {
+                try {
+                    const registration = await navigator.serviceWorker.register('/sw.js');
+                    console.log('Service Worker registered successfully:', registration.scope);
+                    
+                    // Listen for updates
+                    registration.addEventListener('updatefound', () => {
+                        const newWorker = registration.installing;
+                        if (newWorker) {
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    // Show update available notification
+                                    showBudgetNotification('info', 'App update available! Refresh to get the latest version.');
+                                }
+                            });
+                        }
+                    });
+                } catch (error) {
+                    console.error('Service Worker registration failed:', error);
+                }
+            });
+        }
+
+        // PWA Install Prompt
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            
+            // Show install button if not already installed
+            if (!window.matchMedia('(display-mode: standalone)').matches) {
+                showInstallPrompt();
+            }
+        });
+
+        function showInstallPrompt() {
+            const installDiv = document.createElement('div');
+            installDiv.innerHTML = `
+                <div class="fixed bottom-4 left-4 right-4 bg-blue-600 text-white p-4 rounded-lg shadow-lg z-50 flex items-center justify-between">
+                    <div>
+                        <strong>Install Budget Buddy</strong>
+                        <p class="text-sm opacity-90">Add to home screen for quick access</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="installApp()" class="bg-white text-blue-600 px-3 py-1 rounded text-sm font-medium">Install</button>
+                        <button onclick="dismissInstall()" class="bg-blue-700 px-3 py-1 rounded text-sm">Later</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(installDiv);
+            
+            window.installPromptDiv = installDiv;
+        }
+
+        window.installApp = async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log('PWA install outcome:', outcome);
+                deferredPrompt = null;
+                if (window.installPromptDiv) {
+                    window.installPromptDiv.remove();
+                }
+            }
+        };
+
+        window.dismissInstall = () => {
+            if (window.installPromptDiv) {
+                window.installPromptDiv.remove();
+            }
+        };
+
+        // Dark Mode Functions
+        function initDarkMode() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            setTheme(savedTheme);
+        }
+
+        function setTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
+            updateDarkModeIcon(theme);
+        }
+
+        function updateDarkModeIcon(theme) {
+            const icon = document.getElementById('darkModeIcon');
+            if (icon) {
+                if (theme === 'dark') {
+                    // Sun icon for switching to light mode
+                    icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />';
+                } else {
+                    // Moon icon for switching to dark mode
+                    icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />';
+                }
+            }
+        }
+
+        window.toggleDarkMode = () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            setTheme(newTheme);
+        };
+
+        // Initialize dark mode on page load
+        initDarkMode();
+        
+        // Initialize history system
+        loadHistory();
+        
+        // Undo/Redo Functions
+        function updateUndoRedoButtons() {
+            const undoBtn = document.getElementById('undoBtn');
+            const redoBtn = document.getElementById('redoBtn');
+            
+            if (undoBtn) {
+                undoBtn.disabled = !canUndo();
+            }
+            
+            if (redoBtn) {
+                redoBtn.disabled = !canRedo();
+            }
+        }
+
+        window.performUndo = async () => {
+            const success = await executeUndo();
+            if (success) {
+                filterAndRender();
+                updateUndoRedoButtons();
+                showBudgetNotification('info', 'Action undone');
+            } else {
+                showBudgetNotification('danger', 'Failed to undo action');
+            }
+        };
+
+        window.performRedo = async () => {
+            const success = await executeRedo();
+            if (success) {
+                filterAndRender();
+                updateUndoRedoButtons();
+                showBudgetNotification('info', 'Action redone');
+            } else {
+                showBudgetNotification('danger', 'Failed to redo action');
+            }
+        };
+
+        // Handle online/offline events
+        window.addEventListener('online', async () => {
+            console.log('App came online');
+            if (currentUser) {
+                const synced = await syncOfflineExpenses(async (expenseData) => {
+                    await addDoc(collection(db, 'expenses'), expenseData);
+                });
+                if (synced) {
+                    showBudgetNotification('success', 'Offline expenses synced!');
+                }
+            }
+        });
+
+        window.addEventListener('offline', () => {
+            console.log('App went offline');
+            showBudgetNotification('warning', 'App is offline. Changes will sync when online.');
+        });
+
+        // Handle PWA shortcuts
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('action') === 'add-expense') {
+            // Auto-open add expense modal when app is launched via shortcut
+            window.addEventListener('load', () => {
+                setTimeout(() => showAddExpense(), 500);
+            });
+        }
     </script>
 </body>
 </html>
