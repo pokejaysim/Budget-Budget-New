@@ -1,10 +1,12 @@
+import { getLocalDateString } from './utils.js';
+
 // Global state
 export let currentUser = null;
 export let allExpenses = []; // All expenses for the user
 export let expenses = []; // Filtered expenses
 export let monthlyBudget = 2000;
 export let billingCycleDay = 11; // Day of month when cycle closes
-export let billingCycleStart = new Date().toISOString().split('T')[0];
+export let billingCycleStart = getLocalDateString();
 export let unsubscribeExpenses = null;
 export let unsubscribeSettings = null;
 export let currentView = 'current'; // 'current', 'lastCycle', 'monthly', 'yearly', 'custom', 'customYear'
@@ -21,7 +23,7 @@ export let editingExpenseId = null;
 export let expenseAmount = '';
 export let expenseCategory = '';
 export let expenseDescription = '';
-export let expenseDate = new Date().toISOString().split('T')[0];
+export let expenseDate = getLocalDateString();
 export let isRefund = false;
 
 // Default categories (used as fallback and for new users)

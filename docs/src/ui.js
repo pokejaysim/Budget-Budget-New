@@ -1,7 +1,7 @@
 import { auth, db } from './firebase-init.js';
 import { collection, addDoc, doc, updateDoc, serverTimestamp, deleteDoc, setDoc } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js';
 import { currentUser, allExpenses, expenses, monthlyBudget, billingCycleDay, billingCycleStart, searchQuery, selectedCategory, selectedMonth, selectedYear, categories, defaultCategories, editingExpenseId, expenseAmount, expenseCategory, expenseDescription, expenseDate, isRefund, setCurrentUser, setAllExpenses, setExpenses, setMonthlyBudget, setBillingCycleDay, setBillingCycleStart, setUnsubscribeExpenses, setUnsubscribeSettings, setCurrentView, setSearchQuery, setSelectedCategory, setSelectedMonth, setSelectedYear, setCharts, setCategories, setUnsubscribeCategories, setEditingExpenseId, setExpenseAmount, setExpenseCategory, setExpenseDescription, setExpenseDate, setIsRefund } from './state.js';
-import { calculateCurrentCycle, calculatePreviousCycle, filterExpenses, getAvailableMonths, getAvailableYears, checkBudgetAlert } from './utils.js';
+import { calculateCurrentCycle, calculatePreviousCycle, filterExpenses, getAvailableMonths, getAvailableYears, checkBudgetAlert, getLocalDateString } from './utils.js';
 import { getMonthlyData, getCategoryTrends, renderCharts } from './charts.js';
 
 export function showBudgetNotification(type, message) {
@@ -470,7 +470,7 @@ export function showAddExpense() {
     setExpenseAmount('');
     setExpenseCategory('');
     setExpenseDescription('');
-    setExpenseDate(new Date().toISOString().split('T')[0]);
+    setExpenseDate(getLocalDateString());
     setIsRefund(false);
     
     showExpenseModal('Add Expense');
@@ -525,7 +525,7 @@ export function showExpenseModal(title) {
 
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Transaction Date</label>
-                    <input type="date" id="expenseDate" value="${expenseDate}" max="${new Date().toISOString().split('T')[0]}" class="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="date" id="expenseDate" value="${expenseDate}" max="${getLocalDateString()}" class="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
 
                 <div class="grid grid-cols-3 gap-2 sm:gap-3 mt-4">
@@ -1285,7 +1285,7 @@ export function exportToCSV() {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `credit-card-expenses-${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `credit-card-expenses-${getLocalDateString()}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

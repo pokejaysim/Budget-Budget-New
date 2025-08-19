@@ -229,7 +229,7 @@
         let expenses = []; // Filtered expenses
         let monthlyBudget = 2000;
         let billingCycleDay = 11; // Day of month when cycle closes
-        let billingCycleStart = new Date().toISOString().split('T')[0];
+        let billingCycleStart = new Date().toISOString().split('T')[0]; // Will be updated after getLocalDateString is defined
         let unsubscribeExpenses = null;
         let unsubscribeSettings = null;
         let currentView = 'current'; // 'current', 'monthly', 'yearly', 'custom', 'customYear', 'billingCycle'
@@ -284,6 +284,23 @@
                 showLogin();
             }
         });
+
+        // Helper function to get the local date string in PST/PDT timezone
+        function getLocalDateString() {
+            const now = new Date();
+            // Convert to PST/PDT timezone (America/Los_Angeles)
+            const localDate = new Date(now.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
+            
+            // Format as YYYY-MM-DD
+            const year = localDate.getFullYear();
+            const month = String(localDate.getMonth() + 1).padStart(2, '0');
+            const day = String(localDate.getDate()).padStart(2, '0');
+            
+            return `${year}-${month}-${day}`;
+        }
+
+        // Initialize billingCycleStart with local timezone
+        billingCycleStart = getLocalDateString();
 
         function calculateCurrentCycle(cycleDay = billingCycleDay, referenceDate = null) {
             const today = referenceDate || new Date();
@@ -1221,7 +1238,7 @@
         let expenseAmount = '';
         let expenseCategory = '';
         let expenseDescription = '';
-        let expenseDate = new Date().toISOString().split('T')[0];
+        let expenseDate = getLocalDateString();
         let isRefund = false;
 
         function editExpense(expenseId) {
@@ -1243,7 +1260,7 @@
             expenseAmount = '';
             expenseCategory = '';
             expenseDescription = '';
-            expenseDate = new Date().toISOString().split('T')[0];
+            expenseDate = getLocalDateString();
             isRefund = false;
 
             showExpenseModal('Add Expense');
@@ -1844,7 +1861,7 @@
             
             try {
                 const today = new Date();
-                const newCycleStart = today.toISOString().split('T')[0];
+                const newCycleStart = getLocalDateString();
                 
                 await setDoc(doc(db, 'userSettings', currentUser.uid), {
                     monthlyBudget: monthlyBudget,
@@ -1969,7 +1986,7 @@
                 expenses = [];
                 monthlyBudget = 2000;
                 billingCycleDay = 11;
-                billingCycleStart = new Date().toISOString().split('T')[0];
+                billingCycleStart = getLocalDateString();
                 categories = [...defaultCategories];
                 
                 // Re-subscribe to get fresh data
@@ -2401,7 +2418,7 @@
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `credit-card-expenses-${new Date().toISOString().split('T')[0]}.csv`;
+            link.download = `credit-card-expenses-${getLocalDateString()}.csv`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);

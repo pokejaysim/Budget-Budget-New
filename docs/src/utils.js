@@ -2,6 +2,20 @@
 import { allExpenses, billingCycleStart, monthlyBudget, currentView, searchQuery, categories, selectedCategory, selectedMonth, selectedYear, setExpenses, expenses, setCharts, charts, billingCycleDay } from './state.js';
 import { showBudgetNotification } from './ui.js';
 
+// Helper function to get the local date string in PST/PDT timezone
+export function getLocalDateString() {
+    const now = new Date();
+    // Convert to PST/PDT timezone (America/Los_Angeles)
+    const localDate = new Date(now.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
+    
+    // Format as YYYY-MM-DD
+    const year = localDate.getFullYear();
+    const month = String(localDate.getMonth() + 1).padStart(2, '0');
+    const day = String(localDate.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+}
+
 export function calculateCurrentCycle(cycleDay) {
     const today = new Date();
     const currentDay = today.getDate();
