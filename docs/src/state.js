@@ -1,4 +1,16 @@
-import { getLocalDateString } from './utils.js';
+// Helper function to get the local date string in PST/PDT timezone
+function getLocalDateString() {
+    const now = new Date();
+    // Convert to PST/PDT timezone (America/Los_Angeles)
+    const localDate = new Date(now.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
+    
+    // Format as YYYY-MM-DD
+    const year = localDate.getFullYear();
+    const month = String(localDate.getMonth() + 1).padStart(2, '0');
+    const day = String(localDate.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+}
 
 // Global state
 export let currentUser = null;
